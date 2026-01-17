@@ -89,6 +89,19 @@ export const MockAPI = {
     return { ...user, id: user._id };
   },
 
+  async forgotPassword(email: string): Promise<void> {
+    await sleep(1000);
+    const emailLower = email.toLowerCase();
+    const user = await db.users.findOne({ email: emailLower });
+    
+    if (!user) {
+      // For security, don't confirm email exists, but we'll simulate for UX
+      throw new Error('Account not found with this email address.');
+    }
+    // Logic to send email would happen here in a real backend
+    return;
+  },
+
   async getResumes(userId: string): Promise<any[]> {
     const resumes = await db.resumes.find();
     // Filter locally if necessary, but the Collection simulator handles basic retrieval
