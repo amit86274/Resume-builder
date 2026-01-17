@@ -68,16 +68,16 @@ const Contact: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">Full Name</label>
-                  <input required type="text" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="Rahul Sharma" />
+                  <input required type="text" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition text-black" placeholder="Rahul Sharma" />
                 </div>
                 <div className="space-y-2">
                   <label className="text-sm font-semibold text-gray-700">Email Address</label>
-                  <input required type="email" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="rahul@example.com" />
+                  <input required type="email" className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition text-black" placeholder="rahul@example.com" />
                 </div>
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Subject</label>
-                <select className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition bg-white">
+                <select className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition bg-white text-black">
                   <option>General Inquiry</option>
                   <option>Technical Support</option>
                   <option>Billing & Payment</option>
@@ -86,7 +86,7 @@ const Contact: React.FC = () => {
               </div>
               <div className="space-y-2">
                 <label className="text-sm font-semibold text-gray-700">Message</label>
-                <textarea required rows={4} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition" placeholder="How can we help you today?"></textarea>
+                <textarea required rows={4} className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none transition text-black" placeholder="How can we help you today?"></textarea>
               </div>
               <button 
                 type="submit"

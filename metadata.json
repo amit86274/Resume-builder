@@ -1,7 +1,5 @@
 {
-  "name": "Copy of ResuMaster AI",
-  "description": "An AI-powered resume and cover letter builder with smart analysis, premium templates, and seamless professional exports.",
-  "requestFramePermissions": [
-    "camera"
-  ]
+  "name": "ResuMaster AI Pro",
+  "description": "Enterprise-grade AI resume builder and ATS optimization platform.",
+  "requestFramePermissions": []
 }
