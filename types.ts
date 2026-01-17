@@ -1,4 +1,3 @@
-
 export interface ResumeData {
   id: string;
   title: string;
@@ -16,6 +15,7 @@ export interface ResumeData {
   experience: Experience[];
   education: Education[];
   skills: string[];
+  languages: string[];
   projects: Project[];
   certifications: string[];
 }

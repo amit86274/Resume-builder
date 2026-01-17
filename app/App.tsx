@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Layout from './components/Layout';
 import Landing from './pages/Landing';
@@ -18,18 +19,18 @@ import { useUser } from './context/UserContext';
 import { useRouter, usePathname, useSearchParams } from './services/router';
 
 /**
- * Simplified miniature for the templates grid
+ * Live rendered miniature showing the full resume preview
  */
 const TemplateCardMiniature: React.FC<{ templateId: string }> = ({ templateId }) => {
   return (
-    <div className="w-full h-full bg-slate-50 flex justify-center items-start overflow-hidden relative">
+    <div className="w-full h-full bg-slate-100 flex justify-center items-start overflow-hidden relative group-hover:bg-slate-200 transition-colors">
       <div 
-        className="bg-white shadow-sm origin-top transition-transform duration-1000"
+        className="bg-white shadow-2xl origin-top transition-transform duration-700"
         style={{ 
           width: '210mm', 
           minHeight: '297mm', 
-          transform: 'scale(0.85)',
-          marginTop: '0px'
+          transform: 'scale(0.18)', /* Scale factor to fit full A4 in the card */
+          marginTop: '12px'
         }}
       >
         <MasterTemplateSelector data={{ ...MOCK_RESUME_DATA, templateId }} />
@@ -113,11 +114,11 @@ const App: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-x-6 gap-y-12 justify-center">
                 {TEMPLATES.map(t => (
                   <div key={t.id} className="flex flex-col group cursor-pointer" onClick={() => setPreviewTemplateId(t.id)}>
-                    <div className="aspect-[3.5/4] overflow-hidden relative rounded-md border border-slate-200 shadow-sm transition-all duration-300 group-hover:shadow-xl group-hover:border-blue-400 bg-white">
+                    <div className="aspect-[210/297] overflow-hidden relative rounded-md border border-slate-200 shadow-sm transition-all duration-300 group-hover:shadow-xl group-hover:border-blue-400 bg-white">
                       <TemplateCardMiniature templateId={t.id} />
                       
-                      <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <button className="bg-white text-slate-900 px-6 py-2 rounded-lg font-bold text-sm shadow-xl">
+                      <div className="absolute inset-0 bg-slate-900/10 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <button className="bg-blue-600 text-white px-6 py-2 rounded-lg font-bold text-sm shadow-xl transform translate-y-4 group-hover:translate-y-0 transition-transform">
                           Preview & Edit
                         </button>
                       </div>
@@ -153,8 +154,8 @@ const App: React.FC = () => {
                       <h2 className="text-3xl font-black text-slate-900 tracking-tight leading-tight">
                         {TEMPLATES.find(t => t.id === previewTemplateId)?.name}
                       </h2>
-                      <p className="text-slate-500 font-medium">
-                        Standard professional format designed for maximum recruiter impact.
+                      <p className="text-slate-500 font-medium leading-relaxed">
+                        Standard professional format designed for maximum recruiter impact. 100% ATS-proof and visually balanced.
                       </p>
                     </div>
                     <button 

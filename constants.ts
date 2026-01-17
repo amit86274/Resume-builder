@@ -2,81 +2,93 @@ import { ResumeTemplate, TemplateTier, ResumeData } from './types';
 
 export const TEMPLATES: ResumeTemplate[] = [
   { 
-    id: 'classic', 
-    name: 'Classic ATS (Suki Davis)', 
+    id: 'yuki-blue', 
+    name: 'Professional Resume Template: Yuki Style', 
     tier: TemplateTier.FREE, 
-    thumbnail: 'https://images.unsplash.com/photo-1598520422279-06521f96405d?auto=format&fit=crop&q=80&w=600&h=800' 
+    thumbnail: 'https://cdn-images.zety.com/templates/professional-intern-resume-template--blue-color-imageFirst-5f9f5986-8aad-4cb5-bd8c-e867989ceb8a.png' 
   }
 ];
 
 export const MOCK_RESUME_DATA: ResumeData = {
   id: 'mock',
   title: 'Mock Resume',
-  templateId: 'classic',
+  templateId: 'yuki-blue',
   lastEdited: new Date().toISOString(),
   personalInfo: {
-    fullName: 'SUKI DAVIS',
-    email: 'suki@example.com',
+    fullName: 'Yuki Miller',
+    email: 'yuki@example.com',
     phone: '(555) 555-5555',
-    location: 'Columbus, OH 43201',
-    linkedin: 'linkedin.com/in/sukidavis',
-    portfolio: 'sukidavis.com',
-    summary: 'Dynamic crew member with hospitality management expertise. Proven record in customer service excellence, ensuring food safety standards, and boosting operational efficiency. Skilled in team collaboration, problem solving, and effective communication.',
+    location: 'Portland, ME 04108',
+    linkedin: 'linkedin.com/in/yukimiller',
+    portfolio: 'yukimiller.com',
+    summary: "Innovative data scientist with 9 years' experience, proficient in AI and analytics, enhancing operations through strategic data-driven solutions.",
   },
   experience: [
     {
       id: 'e1',
-      company: 'Sunset Grill',
-      position: 'Crew Member',
-      location: 'Columbus, OH',
-      startDate: '01/2024',
-      endDate: '12/2025',
+      company: 'Tech Innovations Lab',
+      position: 'Intern',
+      location: 'Portland, ME',
+      startDate: '2025-06',
+      endDate: '2025-12',
       current: false,
-      description: 'Assisted 150+ customers daily with meal preferences\nEnsured food safety standards met 100% of the time\nIncreased team efficiency by 20% through process improvements'
+      description: 'Developed AI models, increasing efficiency by 20%\nStreamlined data processing, cutting costs by $10K\nCollaborated on projects improving performance by 15%'
     },
     {
       id: 'e2',
-      company: 'Maple Leaf Dining',
-      position: 'Service Associate',
-      location: 'Columbus, OH',
-      startDate: '01/2022',
-      endDate: '12/2023',
+      company: 'Quantify Financial',
+      position: 'Junior Data Analyst',
+      location: 'Portland, ME',
+      startDate: '2023-01',
+      endDate: '2025-05',
       current: false,
-      description: 'Managed cash transactions exceeding $10k monthly\nAchieved 95% customer satisfaction ratings consistently\nTrained 5 new team members in service protocols'
+      description: 'Analyzed datasets, contributing to 30% revenue growth\nImproved dashboard visibility, boosting engagements 50%\nEnhanced reporting accuracy, reducing errors by 25%'
+    },
+    {
+      id: 'e3',
+      company: 'DataHub Analytics',
+      position: 'Data Analyst',
+      location: 'Portland, ME',
+      startDate: '2016-01',
+      endDate: '2022-12',
+      current: false,
+      description: 'Led analytics projects, saving $50K annually\nIntegrated new metrics, enhancing insights 40%\nSupported teams, improving workflow efficiency by 30%'
     }
   ],
   education: [
     {
       id: 'ed1',
-      school: 'Springfield University',
-      degree: 'Bachelor of Arts: Hospitality Management',
-      location: 'Northwood, OH',
-      startDate: '2018',
-      endDate: '05/2022',
-      grade: '3.8 GPA'
+      school: 'Stanford University',
+      degree: 'Master of Science: Data Science',
+      location: 'Westbrook, ME',
+      startDate: '2015-06',
+      endDate: '',
+      grade: ''
     },
     {
       id: 'ed2',
-      school: 'Springfield High School',
-      degree: 'High School Diploma: General Studies',
-      location: 'Northwood, OH',
-      startDate: '2014',
-      endDate: '06/2018',
+      school: 'University of California, Berkeley',
+      degree: 'Bachelor of Arts: Computer Science',
+      location: 'Westbrook, ME',
+      startDate: '2014-06',
+      endDate: '',
       grade: ''
     }
   ],
-  skills: ['Customer Service Excellence', 'Team Collaboration', 'Food Safety Compliance', 'Efficient Multitasking'],
-  projects: [
-    { id: 'p1', name: 'Menu Revamp', link: '', description: 'Revamped menu layout, boosting sales by 15%' },
-    { id: 'p2', name: 'Scheduling Sync', link: '', description: 'Implemented new scheduling system, reducing overtime costs by 10%' }
+  skills: ['Data Analysis', 'Python Programming', 'Machine Learning', 'Predictive Modeling', 'Statistical Analysis'],
+  languages: ['Spanish', 'Mandarin', 'German'],
+  projects: [],
+  certifications: [
+    'Certified AI Practitioner - AI Certification Institute',
+    'Data Analytics Professional - Global Data Institute',
+    'Advanced Python Developer - Python Certifications Board'
   ],
-  certifications: ['Food Safety Certified', 'First Aid'],
 };
 
 export const INITIAL_RESUME: ResumeData = {
   id: '1',
   title: 'My Resume',
-  templateId: 'classic',
+  templateId: 'yuki-blue',
   lastEdited: new Date().toISOString(),
   personalInfo: {
     fullName: '',
@@ -90,6 +102,7 @@ export const INITIAL_RESUME: ResumeData = {
   experience: [],
   education: [],
   skills: [],
+  languages: [],
   projects: [],
   certifications: [],
 };
