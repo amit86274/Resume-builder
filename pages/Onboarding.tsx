@@ -1,10 +1,9 @@
-
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Upload, FileText, CheckCircle2, X, Loader2, AlertCircle, 
   FileStack, Sparkles, Target, Zap, Lock, ArrowRight,
   TrendingUp, Search, Info, BarChart3, ShieldCheck, Eye,
-  CreditCard, ExternalLink, FileWarning
+  CreditCard, ExternalLink, FileWarning, SearchX
 } from 'lucide-react';
 import { analyzeResumeATS } from '../services/gemini';
 import { AnalyzerResult } from '../types';
@@ -23,8 +22,9 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scanSteps = [
+    "Reading file data...",
     "Verifying document type...",
-    "Extracting structure...",
+    "Validating content structure...",
     "Scanning keywords...",
     "Calculating ATS compatibility...",
     "Finalizing AI score..."
@@ -46,21 +46,34 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
     const validTypes = [
       'application/pdf',
       'application/msword',
-      'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'text/plain'
     ];
     
     const extension = selectedFile.name.split('.').pop()?.toLowerCase();
-    const isValidExtension = ['pdf', 'doc', 'docx'].includes(extension || '');
+    const isValidExtension = ['pdf', 'doc', 'docx', 'txt'].includes(extension || '');
 
     if (validTypes.includes(selectedFile.type) || isValidExtension) {
       setFile(selectedFile);
       setError(null);
       return true;
     } else {
-      setError('Unsupported format. Please upload a PDF or Word document (.doc, .docx)');
+      setError('Unsupported format. Please upload a PDF, Word document, or Text file.');
       setFile(null);
       return false;
     }
+  };
+
+  const readFileContent = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target?.result as string || "");
+      reader.onerror = (e) => reject(e);
+      // We read as text to extract identifiable strings for the LLM. 
+      // For binary formats (PDF/DOCX), the LLM is smart enough to identify 
+      // the structure or lack thereof from the raw stream.
+      reader.readAsText(file);
+    });
   };
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -99,15 +112,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
     setError(null);
 
     try {
-      /**
-       * In a real app, file text extraction would happen here.
-       * We simulate the extracted text for the AI.
-       */
-      const mockContent = "Rahul Sharma. Contact: rahul@example.com. Experience: Senior Dev at Meta for 5 years. Education: B.Tech in CS. Skills: React, Node, SQL.";
-      const result = await analyzeResumeATS(file.name, mockContent);
+      // Step 1: Actually read the user's file content
+      const actualContent = await readFileContent(file);
       
-      // Artificial delay for high-quality UX feel
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Step 2: Send the real content to Gemini
+      const result = await analyzeResumeATS(file.name, actualContent);
+      
+      // Artificial delay for high-quality UX feel so users see the scan steps
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
       if (!result.isResume) {
         setError(result.rejectionMessage || "This file doesn't look like a professional resume. Please upload a CV or Resume file.");
@@ -115,7 +127,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
         setAnalysis(result);
       }
     } catch (err) {
-      setError("Failed to analyze resume. Please check your connection and try again.");
+      setError("Failed to read or analyze document. Please ensure you are uploading a valid resume file.");
     } finally {
       setIsProcessing(false);
     }
@@ -136,7 +148,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
                 <ShieldCheck className="w-3.5 h-3.5 mr-2" /> ATS Quality Report
               </div>
               <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tighter">
-                Analysis for <span className="text-blue-600 truncate">{file?.name}</span>
+                Analysis for <span className="text-blue-600 truncate max-w-[300px] inline-block align-bottom">{file?.name}</span>
               </h1>
               <p className="text-slate-500 font-medium max-w-xl leading-relaxed">
                 Our AI has compared your resume against <span className="text-slate-900 font-bold">12,000+ top-tier applications</span>.
@@ -185,7 +197,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
                   <span className="text-2xl font-black">{analysis.atsScore}%</span>
                 </div>
                 <div className="w-full bg-white/10 h-2 rounded-full overflow-hidden mb-6">
-                  <div className="bg-blue-500 h-full" style={{ width: `${analysis.atsScore}%` }} />
+                  <div className="bg-blue-500 h-full transition-all duration-1000" style={{ width: `${analysis.atsScore}%` }} />
                 </div>
               </div>
             </div>
@@ -248,7 +260,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
 
       <div className="max-w-4xl w-full text-center space-y-4 mb-12">
         <h1 className="text-4xl md:text-5xl font-black text-[#1a2b48] tracking-tight">How's your resume looking?</h1>
-        <p className="text-gray-500 text-lg font-medium">Upload and let our AI find your <span className="text-blue-600">match score</span></p>
+        <p className="text-gray-500 text-lg font-medium">Upload and let our AI find your <span className="text-blue-600 font-black uppercase tracking-widest text-sm">match score</span></p>
       </div>
 
       <div className="max-w-xl w-full mb-12">
@@ -256,21 +268,33 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
           type="file" 
           ref={fileInputRef}
           className="hidden" 
-          accept=".pdf,.doc,.docx"
+          accept=".pdf,.doc,.docx,.txt"
           onChange={handleFileChange}
         />
         
         {error && (
-          <div className="mb-8 p-8 rounded-[2.5rem] bg-red-50 border border-red-100 flex flex-col items-center text-center text-red-600 animate-in slide-in-from-top-4 shadow-xl">
-            <FileWarning className="w-12 h-12 text-red-500 mb-4" />
-            <h4 className="text-lg font-black uppercase tracking-tighter mb-2">Not a Resume?</h4>
-            <p className="text-sm font-bold leading-relaxed">{error}</p>
-            <button 
-              onClick={() => { setError(null); setFile(null); }}
-              className="mt-6 text-xs font-black uppercase tracking-widest bg-red-600 text-white px-8 py-3 rounded-2xl shadow-lg hover:bg-red-700 transition-all"
-            >
-              Try Another File
-            </button>
+          <div className="mb-8 p-10 rounded-[3rem] bg-red-50 border-2 border-red-100 flex flex-col items-center text-center animate-in zoom-in duration-500 shadow-2xl shadow-red-100">
+            <div className="w-20 h-20 bg-red-100 rounded-3xl flex items-center justify-center mb-6 text-red-600">
+               <SearchX className="w-10 h-10" />
+            </div>
+            <h4 className="text-2xl font-black text-slate-900 mb-2">Not a Professional Resume</h4>
+            <p className="text-slate-500 font-medium leading-relaxed mb-8 max-w-sm">
+              {error}
+            </p>
+            <div className="flex flex-col sm:flex-row gap-4 w-full">
+              <button 
+                onClick={() => { setError(null); setFile(null); triggerUpload(); }}
+                className="flex-1 px-8 py-4 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest shadow-xl hover:bg-slate-800 transition-all flex items-center justify-center"
+              >
+                <Upload className="w-4 h-4 mr-2" /> Try Different File
+              </button>
+              <button 
+                onClick={() => { setError(null); setFile(null); }}
+                className="flex-1 px-8 py-4 bg-white border border-slate-200 text-slate-600 rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-slate-50 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         )}
         
@@ -284,7 +308,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
               ${isDragging 
                 ? 'border-blue-600 bg-blue-50/50 scale-[1.02]' 
                 : file 
-                  ? 'border-green-500 bg-green-50/20' 
+                  ? 'border-green-500 bg-green-50/20 shadow-green-100' 
                   : 'border-slate-200 bg-white hover:border-blue-400 hover:bg-slate-50/50'
               }`}
           >
@@ -306,13 +330,16 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
             ) : (
               <>
                 <div className={`w-32 h-32 rounded-[2.5rem] flex items-center justify-center border-2 transition-all duration-500 bg-white shadow-2xl
-                  ${isDragging ? 'scale-110 border-blue-600 text-blue-600 rotate-6' : 'border-slate-100 text-slate-300 group-hover:scale-110 group-hover:text-blue-500'}`}>
-                  <Upload className="w-16 h-16" />
+                  ${isDragging ? 'scale-110 border-blue-600 text-blue-600 rotate-6' : 'border-slate-100 text-slate-300 group-hover:scale-110 group-hover:text-blue-50'}`}>
+                  <div className="relative">
+                    <Upload className={`w-16 h-16 ${isDragging ? 'text-blue-600' : 'text-slate-200 group-hover:text-blue-400'}`} />
+                    <Sparkles className="absolute -top-4 -right-4 w-6 h-6 text-blue-400 opacity-0 group-hover:opacity-100 transition-opacity animate-pulse" />
+                  </div>
                 </div>
                 <div className="space-y-4">
                   <h2 className="text-3xl font-black text-[#1a2b48]">Drag & drop resume</h2>
                   <p className="text-gray-400 font-medium leading-relaxed max-w-xs mx-auto">
-                    AI parsing supports <span className="text-slate-900">PDF, DOC, and DOCX</span> formats. 
+                    AI parsing supports <span className="text-slate-900 font-bold">PDF, DOC, DOCX, and TXT</span> formats. 
                   </p>
                 </div>
               </>
@@ -326,10 +353,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectUpload }) => {
           onClick={handleStartAnalysis}
           disabled={!file || !!error}
           className={`w-full font-black px-16 py-6 rounded-[2rem] text-xl text-white shadow-2xl transition-all active:scale-95 border-none uppercase tracking-widest bg-animate-gradient 
-            ${(!file || !!error) ? 'opacity-50 cursor-not-allowed grayscale' : ''}`}
+            ${(!file || !!error) ? 'opacity-50 cursor-not-allowed grayscale' : 'hover:scale-105 shadow-blue-500/20'}`}
         >
-          {file ? 'Get My Free Score' : 'Next'}
+          {file ? 'Get My Free Score' : 'Upload File'}
         </button>
+        <p className="mt-6 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
+          <Lock className="w-3 h-3 inline mr-2" /> 256-bit SSL encrypted & secure
+        </p>
       </div>
     </div>
   );

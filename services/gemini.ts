@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, AnalyzerResult } from "../types";
 
@@ -11,7 +10,6 @@ export const improveSummary = async (summary: string): Promise<string> => {
       systemInstruction: "You are an expert HR recruiter. Rewrite the text to be professional, punchy, and results-oriented. Use action verbs and highlight seniority.",
     }
   });
-  // Use response.text property directly
   return response.text?.trim() || summary;
 };
 
@@ -24,24 +22,29 @@ export const rewriteExperience = async (text: string): Promise<string> => {
       systemInstruction: "Ensure the output is professional and suitable for an ATS-friendly resume. Focus on X-Y-Z formula: Accomplished [X] as measured by [Y], by doing [Z].",
     }
   });
-  // Use response.text property directly
   return response.text?.trim() || text;
 };
 
 /**
- * Enhanced analysis with document type validation.
+ * Enhanced analysis with strict document type validation.
  * First checks if content is a resume, then performs ATS analysis.
  */
 export const analyzeResumeATS = async (filename: string, content: string): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  // Upgraded to gemini-3-pro-preview for complex reasoning tasks like resume analysis
   const response = await ai.models.generateContent({
     model: 'gemini-3-pro-preview',
-    contents: `Analyze this document. 
-    STEP 1: Determine if it is a professional resume/CV. 
-    STEP 2: If it IS a resume, perform a deep ATS analysis. 
-    Filename: ${filename}. 
-    Content: "${content}"`,
+    contents: `Analyze the provided text.
+    
+    PRIMARY TASK: Is this a Resume, CV, or LinkedIn Profile?
+    
+    CRITERIA FOR REJECTION (isResume: false):
+    - It is a recipe, book chapter, poem, or song lyrics.
+    - It is a casual letter or email without structured work history.
+    - It is a technical manual or purely academic paper.
+    - It lacks ANY of the following: Contact Info, Work Experience, or Education history.
+    
+    Filename: ${filename}
+    Document Text: "${content}"`,
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -49,42 +52,39 @@ export const analyzeResumeATS = async (filename: string, content: string): Promi
         properties: {
           isResume: { 
             type: Type.BOOLEAN, 
-            description: "Strictly true if the content is a professional resume, CV, or LinkedIn profile export. False for everything else (essays, recipes, photos, generic letters)." 
+            description: "Strictly true ONLY if the content is a professional resume/CV. False for any other document type." 
           },
           rejectionMessage: { 
             type: Type.STRING, 
-            description: "If isResume is false, explain why (e.g., 'This document appears to be a school essay rather than a professional resume')." 
+            description: "A professional reason explaining why the document was rejected if isResume is false." 
           },
           score: { type: Type.NUMBER, description: "Overall quality score 0-100" },
           missingSections: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Sections needed for ATS compliance" },
-          contentSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific free-text improvements" },
+          contentSuggestions: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Specific improvements" },
           atsScore: { type: Type.NUMBER, description: "Technical parsing score 0-100" },
-          generalFeedback: { type: Type.STRING, description: "Executive summary of the resume quality" }
+          generalFeedback: { type: Type.STRING, description: "Summary of the resume quality" }
         },
         required: ["isResume", "score", "missingSections", "contentSuggestions", "atsScore", "generalFeedback"]
       },
-      systemInstruction: `Act as a senior Recruiter and ATS Expert. 
-      VALIDATION IS CRITICAL: If the input content lacks work history, education history, or contact details, set isResume to false.
-      If it is a resume, analyze it for:
-      1. Action-oriented language.
-      2. Quantifiable metrics.
-      3. Section hierarchy.
-      4. Keyword density relevant to the filename/title.`
+      systemInstruction: `You are a strict ATS (Applicant Tracking System) Validation Gatekeeper. 
+      Your first and most important job is to filter out non-resume content. 
+      Users might try to upload random text, essays, or recipes to test the system. 
+      Only return isResume: true if you see a clear intent to present professional credentials.
+      If it is a resume, provide deep technical analysis for ATS compatibility.`
     }
   });
   
   try {
-    // response.text property returns the extracted string output
     return JSON.parse(response.text || '{}');
   } catch (e) {
-    // Fallback if AI output is malformed
     return {
-      isResume: true,
+      isResume: false,
+      rejectionMessage: "Document analysis failed. Please ensure you are uploading a standard PDF/Word resume.",
       score: 0,
       missingSections: [],
       contentSuggestions: [],
       atsScore: 0,
-      generalFeedback: "Analysis encountered an error."
+      generalFeedback: ""
     };
   }
 };
