@@ -1,22 +1,22 @@
-
 import React, { useState } from 'react';
-import Layout from './components/Layout';
-import Landing from './pages/Landing';
-import Builder from './pages/Builder';
-import Blog from './pages/Blog';
-import Contact from './pages/Contact';
-import FAQ from './pages/FAQ';
-import Auth from './pages/Auth';
-import Dashboard from './pages/Dashboard';
-import AdminDashboard from './pages/AdminDashboard';
-import Onboarding from './pages/Onboarding';
-import Toast, { ToastType } from './components/Toast';
-import { User, TemplateTier } from './types';
-import { TEMPLATES, MOCK_RESUME_DATA } from './constants';
+import Layout from '../components/Layout';
+import Landing from '../pages/Landing';
+import Builder from '../pages/Builder';
+import Blog from '../pages/Blog';
+import Contact from '../pages/Contact';
+import FAQ from '../pages/FAQ';
+import Auth from '../pages/Auth';
+import Dashboard from '../pages/Dashboard';
+import AdminDashboard from '../pages/AdminDashboard';
+import Onboarding from '../pages/Onboarding';
+import ResumeOption from '../pages/ResumeOption';
+import Toast, { ToastType } from '../components/Toast';
+import { User, TemplateTier } from '../types';
+import { TEMPLATES, MOCK_RESUME_DATA } from '../constants';
 import { X, Eye, CheckCircle, Sparkles } from 'lucide-react';
-import { MasterTemplateSelector } from './components/ResumeTemplates';
-import { useUser } from './context/UserContext';
-import { useRouter, usePathname, useSearchParams } from './services/router';
+import { MasterTemplateSelector } from '../components/ResumeTemplates';
+import { useUser } from '../context/UserContext';
+import { useRouter, usePathname, useSearchParams } from '../services/router';
 
 const App: React.FC = () => {
   const { user, setUser, logout } = useUser();
@@ -39,6 +39,14 @@ const App: React.FC = () => {
     navigate(userData.role === 'admin' ? 'admin' : 'dashboard');
   };
 
+  const handleMethodSelect = (method: 'upload' | 'scratch') => {
+    if (method === 'upload') {
+      navigate(`analyzer?template=${selectedTemplateId}`);
+    } else {
+      navigate(`builder?template=${selectedTemplateId}`);
+    }
+  };
+
   const renderPage = () => {
     switch (currentPage) {
       case 'landing': return <Landing onStart={() => navigate('templates')} onNavigate={navigate} />;
@@ -50,6 +58,7 @@ const App: React.FC = () => {
       case 'blog': return <Blog onNavigate={navigate} />;
       case 'contact': return <Contact />;
       case 'faq': return <FAQ />;
+      case 'resume-option': return <ResumeOption onSelect={handleMethodSelect} templateId={selectedTemplateId || undefined} />;
       case 'analyzer': return <Onboarding onSelectUpload={() => navigate('builder')} />;
       case 'templates': return (
         <div className="bg-slate-50 min-h-screen py-24 px-6">
@@ -67,7 +76,6 @@ const App: React.FC = () => {
                     </div>
                   )}
                   <div className="aspect-[3/4] overflow-hidden relative rounded-[2.5rem] border border-slate-200 shadow-[0_10px_40px_rgb(0,0,0,0.04)] transition-all duration-500 group-hover:shadow-[0_30px_80px_rgb(0,0,0,0.12)] group-hover:border-blue-300 bg-white group-hover:-translate-y-3">
-                    {/* Using the static thumbnail image from constants.ts */}
                     <img 
                       src={t.thumbnail} 
                       alt={t.name} 
@@ -75,7 +83,7 @@ const App: React.FC = () => {
                     />
                     <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center space-y-4 px-10">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); navigate(`builder?template=${t.id}`); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`resume-option?template=${t.id}`); }}
                         className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:bg-blue-500 flex items-center justify-center space-x-2"
                       >
                         <CheckCircle className="w-4 h-4" />
@@ -104,12 +112,12 @@ const App: React.FC = () => {
               <div className="absolute inset-0 bg-slate-950/95 backdrop-blur-md" onClick={() => setPreviewTemplateId(null)} />
               <div className="relative bg-white w-full max-w-[96vw] h-full max-h-[96vh] rounded-[3rem] shadow-[0_50px_100px_rgba(0,0,0,0.3)] overflow-hidden flex flex-col md:flex-row border border-white/20">
                 <button onClick={() => setPreviewTemplateId(null)} className="absolute top-8 right-8 z-50 bg-slate-100 text-slate-900 p-3 rounded-full hover:bg-red-50 hover:text-red-600 transition-all shadow-xl"><X className="w-6 h-6" /></button>
-                <div className="w-full md:w-[85%] bg-slate-100/50 p-6 md:p-12 overflow-y-auto flex justify-center items-start scrollbar-hide">
+                <div className="w-full md:w-[80%] bg-slate-100/50 p-6 md:p-12 overflow-y-auto flex justify-center items-start scrollbar-hide">
                   <div className="w-full max-w-[21cm] shadow-[0_40px_100px_rgba(0,0,0,0.1)] bg-white origin-top scale-[0.6] sm:scale-[0.85] lg:scale-[1.0] transition-transform duration-700">
                      <MasterTemplateSelector data={{ ...MOCK_RESUME_DATA, templateId: previewTemplateId }} />
                   </div>
                 </div>
-                <div className="w-full md:w-[15%] p-10 flex flex-col justify-between border-l border-slate-100 bg-white shadow-[-20px_0_50px_rgba(0,0,0,0.03)]">
+                <div className="w-full md:w-[20%] p-10 flex flex-col justify-between border-l border-slate-100 bg-white shadow-[-20px_0_50px_rgba(0,0,0,0.03)]">
                   <div className="space-y-10">
                     <div className="space-y-3">
                       <h2 className="text-2xl font-black text-slate-900 tracking-tighter leading-none uppercase">{TEMPLATES.find(t => t.id === previewTemplateId)?.name.split(':')[0]}</h2>
@@ -117,7 +125,7 @@ const App: React.FC = () => {
                     </div>
                     <p className="text-slate-400 font-medium leading-relaxed text-[13px]">Engineered for maximum readability and recruiter engagement. Full ATS compliance guaranteed.</p>
                   </div>
-                  <button onClick={() => navigate(`builder?template=${previewTemplateId}`)} className="w-full bg-blue-600 text-white py-6 rounded-3xl font-black uppercase tracking-[0.2em] text-[11px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 active:scale-95">Use this Template</button>
+                  <button onClick={() => navigate(`resume-option?template=${previewTemplateId}`)} className="w-full bg-blue-600 text-white py-4 rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 whitespace-nowrap leading-none">Use this Template</button>
                 </div>
               </div>
             </div>

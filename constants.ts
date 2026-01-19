@@ -1,3 +1,4 @@
+
 import { ResumeTemplate, TemplateTier, ResumeData } from './types';
 
 export const TEMPLATES: ResumeTemplate[] = [
@@ -29,8 +30,9 @@ export const MOCK_RESUME_DATA: ResumeData = {
       company: 'Tech Innovations Lab',
       position: 'Intern',
       location: 'Portland, ME',
-      startDate: '2025-06',
-      endDate: '2025-12',
+      isRemote: false,
+      startDate: 'June 2025',
+      endDate: 'December 2025',
       current: false,
       description: 'Developed AI models, increasing efficiency by 20%\nStreamlined data processing, cutting costs by $10K\nCollaborated on projects improving performance by 15%'
     },
@@ -39,8 +41,9 @@ export const MOCK_RESUME_DATA: ResumeData = {
       company: 'Quantify Financial',
       position: 'Junior Data Analyst',
       location: 'Portland, ME',
-      startDate: '2023-01',
-      endDate: '2025-05',
+      isRemote: true,
+      startDate: 'January 2023',
+      endDate: 'May 2025',
       current: false,
       description: 'Analyzed datasets, contributing to 30% revenue growth\nImproved dashboard visibility, boosting engagements 50%\nEnhanced reporting accuracy, reducing errors by 25%'
     },
@@ -49,8 +52,9 @@ export const MOCK_RESUME_DATA: ResumeData = {
       company: 'DataHub Analytics',
       position: 'Data Analyst',
       location: 'Portland, ME',
-      startDate: '2016-01',
-      endDate: '2022-12',
+      isRemote: false,
+      startDate: 'January 2016',
+      endDate: 'December 2022',
       current: false,
       description: 'Led analytics projects, saving $50K annually\nIntegrated new metrics, enhancing insights 40%\nSupported teams, improving workflow efficiency by 30%'
     }

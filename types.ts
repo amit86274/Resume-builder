@@ -1,3 +1,4 @@
+
 export interface ResumeData {
   id: string;
   title: string;
@@ -25,6 +26,7 @@ export interface Experience {
   company: string;
   position: string;
   location: string;
+  isRemote: boolean;
   startDate: string;
   endDate: string;
   current: boolean;

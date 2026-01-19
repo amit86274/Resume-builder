@@ -25,6 +25,54 @@ export const rewriteExperience = async (text: string): Promise<string> => {
   return response.text?.trim() || text;
 };
 
+export const getResponsibilitiesSuggestions = async (jobTitle: string): Promise<string[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `Generate 6 professional resume bullet points for the job title: "${jobTitle}"`,
+    config: {
+      systemInstruction: "You are an expert career coach. Provide high-impact, results-oriented bullet points that use strong action verbs (e.g., 'Spearheaded', 'Optimized', 'Managed'). Each point should feel distinct and cover common responsibilities for this role.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    }
+  });
+  
+  try {
+    const text = response.text || "[]";
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse AI suggestions", e);
+    return [];
+  }
+};
+
+export const getSkillSuggestions = async (jobTitle: string): Promise<string[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const response = await ai.models.generateContent({
+    model: 'gemini-3-flash-preview',
+    contents: `List the top 12 most relevant skills for a "${jobTitle}" candidate. Include a mix of technical (hard) and interpersonal (soft) skills.`,
+    config: {
+      systemInstruction: "You are a professional resume consultant and ATS specialist. Your goal is to provide skills that maximize the candidate's chances of passing recruiter screening. Keep skills concise (2-3 words max). Return as a JSON array of strings.",
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.ARRAY,
+        items: { type: Type.STRING }
+      }
+    }
+  });
+  
+  try {
+    const text = response.text || "[]";
+    return JSON.parse(text);
+  } catch (e) {
+    console.error("Failed to parse AI skills", e);
+    return [];
+  }
+};
+
 /**
  * Enhanced analysis with strict document type validation.
  * First checks if content is a resume, then performs ATS analysis.

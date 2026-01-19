@@ -9,6 +9,7 @@ import Auth from '../pages/Auth';
 import Dashboard from '../pages/Dashboard';
 import AdminDashboard from '../pages/AdminDashboard';
 import Onboarding from '../pages/Onboarding';
+import ResumeOption from '../pages/ResumeOption';
 import Toast, { ToastType } from '../components/Toast';
 import { User, TemplateTier } from '../types';
 import { TEMPLATES, MOCK_RESUME_DATA } from '../constants';
@@ -27,6 +28,10 @@ const App: React.FC = () => {
   const currentPage = pathname === '/' || pathname === '/landing' ? 'landing' : pathname.replace(/^\//, '');
   const selectedTemplateId = searchParams.get('template');
 
+  // Define immersive pages that should hide the global header/footer
+  const immersivePages = ['builder', 'resume-option', 'analyzer'];
+  const showGlobalNavFooter = !immersivePages.includes(currentPage);
+
   const navigate = (page: string) => {
     push(page.startsWith('/') ? page : `/${page}`);
     window.scrollTo(0, 0);
@@ -36,6 +41,14 @@ const App: React.FC = () => {
     setUser(userData);
     setToast({ message: `Welcome, ${userData.name}!`, type: 'success' });
     navigate(userData.role === 'admin' ? 'admin' : 'dashboard');
+  };
+
+  const handleMethodSelect = (method: 'upload' | 'scratch') => {
+    if (method === 'upload') {
+      navigate(`analyzer?template=${selectedTemplateId}`);
+    } else {
+      navigate(`builder?template=${selectedTemplateId}`);
+    }
   };
 
   const renderPage = () => {
@@ -49,6 +62,7 @@ const App: React.FC = () => {
       case 'blog': return <Blog onNavigate={navigate} />;
       case 'contact': return <Contact />;
       case 'faq': return <FAQ />;
+      case 'resume-option': return <ResumeOption onSelect={handleMethodSelect} templateId={selectedTemplateId || undefined} />;
       case 'analyzer': return <Onboarding onSelectUpload={() => navigate('builder')} />;
       case 'templates': return (
         <div className="bg-slate-50 min-h-screen py-24 px-6">
@@ -73,7 +87,7 @@ const App: React.FC = () => {
                     />
                     <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center space-y-4 px-10">
                       <button 
-                        onClick={(e) => { e.stopPropagation(); navigate(`builder?template=${t.id}`); }}
+                        onClick={(e) => { e.stopPropagation(); navigate(`resume-option?template=${t.id}`); }}
                         className="w-full bg-blue-600 text-white py-5 rounded-2xl font-black text-[11px] uppercase tracking-[0.2em] shadow-2xl transform translate-y-4 group-hover:translate-y-0 transition-all duration-300 hover:bg-blue-500 flex items-center justify-center space-x-2"
                       >
                         <CheckCircle className="w-4 h-4" />
@@ -115,7 +129,7 @@ const App: React.FC = () => {
                     </div>
                     <p className="text-slate-400 font-medium leading-relaxed text-[13px]">Engineered for maximum readability and recruiter engagement. Full ATS compliance guaranteed.</p>
                   </div>
-                  <button onClick={() => navigate(`builder?template=${previewTemplateId}`)} className="w-full bg-blue-600 text-white py-4 rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 whitespace-nowrap leading-none">Use this Template</button>
+                  <button onClick={() => navigate(`resume-option?template=${previewTemplateId}`)} className="w-full bg-blue-600 text-white py-4 rounded-3xl font-black uppercase tracking-[0.2em] text-[12px] hover:bg-blue-700 transition-all shadow-2xl shadow-blue-500/30 active:scale-95 whitespace-nowrap leading-none">Use this Template</button>
                 </div>
               </div>
             </div>
@@ -127,7 +141,14 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout user={user} onNavigate={navigate} onLogout={() => { logout(); navigate('landing'); }} currentPage={currentPage}>
+    <Layout 
+      user={user} 
+      onNavigate={navigate} 
+      onLogout={() => { logout(); navigate('landing'); }} 
+      currentPage={currentPage}
+      showNavbar={showGlobalNavFooter}
+      showFooter={showGlobalNavFooter}
+    >
       {renderPage()}
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
     </Layout>
