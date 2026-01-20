@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   CheckCircle, Zap, Shield, FileCheck, ArrowRight, 
@@ -66,7 +67,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
     {
       name: "Ananya Iyer",
       role: "Software Engineer at TCS",
-      content: "ResuMaster helped me optimize my resume for ATS. I got three interview calls within a week of using the AI analyzer!",
+      content: "ResuMaster helped me build a stunning resume in minutes. I got three interview calls within a week of using the builder!",
       rating: 5,
       avatar: "https://i.pravatar.cc/150?u=ananya"
     },
@@ -87,7 +88,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
     {
       name: "Rajesh Kumar",
       role: "Data Scientist",
-      content: "The AI analysis is surprisingly deep. It pointed out missing skills I hadn't even thought about. Highly recommended for professionals.",
+      content: "The AI porting feature is incredible. It moved all my LinkedIn data into a professional template instantly. Highly recommended.",
       rating: 5,
       avatar: "https://i.pravatar.cc/150?u=rajesh"
     }
@@ -213,7 +214,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
             <div className="hidden lg:flex flex-wrap justify-center gap-4 max-w-sm">
                {[
                  { label: "Core Engine", val: "Gemini 3", icon: <Cpu /> },
-                 { label: "Parsing Rate", val: "99.8%", icon: <Terminal /> },
+                 { label: "Porting Rate", val: "99.8%", icon: <Terminal /> },
                  { label: "Layout Logic", val: "Dynamic", icon: <Layers /> }
                ].map((stat, i) => (
                  <div key={i} className="bg-slate-50 p-6 rounded-3xl border border-slate-100 flex-1 min-w-[160px] group hover:bg-white hover:shadow-xl transition-all">
@@ -237,9 +238,9 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
             <FeatureCard 
               icon={<FileCheck />}
               iconBg="bg-indigo-600 shadow-indigo-200"
-              title="Real-time ATS Scan"
+              title="Smart AI Porting"
               tag="Module 02"
-              description="Watch your score climb as you build. Get precise feedback to bypass automated gatekeepers used by top global firms."
+              description="Move your existing resume into a professional template in seconds. Our AI maps your data perfectly every time."
               delay="150"
             />
             <FeatureCard 

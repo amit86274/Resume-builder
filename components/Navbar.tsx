@@ -1,6 +1,7 @@
+
 import React, { useState } from 'react';
 import { 
-  Sparkles, FileText, FileSearch, Layers, 
+  Sparkles, FileText, Layers, 
   ChevronDown, LayoutDashboard, LogOut, Bell, Menu, X, BarChart 
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
@@ -23,7 +24,6 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage: propCurrentPag
   const navItems = [
     { id: 'builder', label: 'Builder', icon: FileText },
     { id: 'templates', label: 'Templates', icon: Layers },
-    { id: 'analyzer', label: 'Analyzer', icon: FileSearch },
   ];
 
   const handleLogout = () => {

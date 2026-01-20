@@ -1,4 +1,3 @@
-
 import { ResumeTemplate, TemplateTier, ResumeData } from './types';
 
 export const TEMPLATES: ResumeTemplate[] = [
@@ -6,92 +5,70 @@ export const TEMPLATES: ResumeTemplate[] = [
     id: 'yuki-blue', 
     name: 'Professional Resume Template: Yuki Style', 
     tier: TemplateTier.FREE, 
-    thumbnail: 'https://cdn-images.zety.com/templates/professional-intern-resume-template--blue-color-imageFirst-5f9f5986-8aad-4cb5-bd8c-e867989ceb8a.png' 
+    thumbnail: 'http://c2fashionstudio.com/trendplatform/wp-content/themes/hello-theme-child/img/resume/resume1.jpeg' 
   }
 ];
 
 export const MOCK_RESUME_DATA: ResumeData = {
-  id: 'mock',
-  title: 'Mock Resume',
+  id: 'mock-1',
+  title: 'My Professional Resume',
   templateId: 'yuki-blue',
   lastEdited: new Date().toISOString(),
   personalInfo: {
     fullName: 'Yuki Miller',
-    email: 'yuki@example.com',
+    email: 'yuki.miller@example.com',
     phone: '(555) 555-5555',
-    location: 'Portland, ME 04108',
+    location: 'Fullstack | Next JS | React JS | Python',
     linkedin: 'linkedin.com/in/yukimiller',
-    portfolio: 'yukimiller.com',
-    summary: "Innovative data scientist with 9 years' experience, proficient in AI and analytics, enhancing operations through strategic data-driven solutions.",
+    portfolio: 'yukimiller.dev',
+    summary: 'Innovative data scientist with 9 years\' experience, proficient in AI and analytics, enhancing operations through strategic data-driven solutions. Proven track record in leading cross-functional teams to deliver scalable machine learning models and actionable business insights.',
+    profileImage: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=400',
   },
   experience: [
     {
-      id: 'e1',
+      id: 'exp-1',
       company: 'Tech Innovations Lab',
-      position: 'Intern',
+      position: 'Senior AI Intern',
       location: 'Portland, ME',
       isRemote: false,
       startDate: 'June 2025',
       endDate: 'December 2025',
       current: false,
-      description: 'Developed AI models, increasing efficiency by 20%\nStreamlined data processing, cutting costs by $10K\nCollaborated on projects improving performance by 15%'
-    },
-    {
-      id: 'e2',
-      company: 'Quantify Financial',
-      position: 'Junior Data Analyst',
-      location: 'Portland, ME',
-      isRemote: true,
-      startDate: 'January 2023',
-      endDate: 'May 2025',
-      current: false,
-      description: 'Analyzed datasets, contributing to 30% revenue growth\nImproved dashboard visibility, boosting engagements 50%\nEnhanced reporting accuracy, reducing errors by 25%'
-    },
-    {
-      id: 'e3',
-      company: 'DataHub Analytics',
-      position: 'Data Analyst',
-      location: 'Portland, ME',
-      isRemote: false,
-      startDate: 'January 2016',
-      endDate: 'December 2022',
-      current: false,
-      description: 'Led analytics projects, saving $50K annually\nIntegrated new metrics, enhancing insights 40%\nSupported teams, improving workflow efficiency by 30%'
+      description: 'Developed advanced AI models, increasing operational efficiency by 20%\nStreamlined core data processing pipelines, cutting infrastructure costs by $10K\nCollaborated on computer vision projects improving detection performance by 15%',
     }
   ],
   education: [
     {
-      id: 'ed1',
+      id: 'edu-1',
       school: 'Stanford University',
       degree: 'Master of Science: Data Science',
-      location: 'Westbrook, ME',
-      startDate: '2015-06',
-      endDate: '',
-      grade: ''
-    },
-    {
-      id: 'ed2',
-      school: 'University of California, Berkeley',
-      degree: 'Bachelor of Arts: Computer Science',
-      location: 'Westbrook, ME',
-      startDate: '2014-06',
-      endDate: '',
-      grade: ''
+      location: 'Stanford, CA',
+      startDate: '2018-09',
+      endDate: '2020-06',
+      grade: '3.9 GPA',
     }
   ],
-  skills: ['Data Analysis', 'Python Programming', 'Machine Learning', 'Predictive Modeling', 'Statistical Analysis'],
-  languages: ['Spanish', 'Mandarin', 'German'],
-  projects: [],
-  certifications: [
-    'Certified AI Practitioner - AI Certification Institute',
-    'Data Analytics Professional - Global Data Institute',
-    'Advanced Python Developer - Python Certifications Board'
+  skills: [
+    { name: 'Data Analysis', level: 90 },
+    { name: 'Python Programming', level: 95 },
+    { name: 'Machine Learning', level: 85 }
   ],
+  languages: ['Spanish (Fluent)', 'German (Native)'],
+  projects: [
+    {
+      id: 'proj-1',
+      name: 'ResuMaster AI Platform',
+      link: 'https://github.com/example/resumaster',
+      description: 'Built a full-stack resume builder using React, Node.js, and Gemini API. Implemented real-time PDF generation and AI-driven content optimization.',
+    }
+  ],
+  certifications: ['Certified AI Practitioner', 'Data Analytics Professional'],
+  hobbies: ['Chess', 'Photography', 'Travel'],
 };
 
 export const INITIAL_RESUME: ResumeData = {
-  id: '1',
-  title: 'My Resume',
+  id: '',
+  title: 'Untitled Resume',
   templateId: 'yuki-blue',
   lastEdited: new Date().toISOString(),
   personalInfo: {
@@ -109,33 +86,5 @@ export const INITIAL_RESUME: ResumeData = {
   languages: [],
   projects: [],
   certifications: [],
+  hobbies: [],
 };
-
-export const PLANS = [
-  {
-    id: 'free',
-    name: 'Basic',
-    price: '₹0',
-    features: ['3 Resumes', 'TXT Downloads', 'Limited AI', 'Standard Templates'],
-    color: 'bg-gray-100',
-    buttonText: 'Current Plan'
-  },
-  {
-    id: 'pro',
-    name: 'Pro (Trial)',
-    price: '₹195',
-    subtext: 'for 14 days, then ₹445/4 weeks',
-    features: ['Unlimited Resumes', 'PDF/DOCX Exports', 'Unlimited AI', 'Premium Templates'],
-    color: 'bg-blue-600 text-white',
-    buttonText: 'Start Trial'
-  },
-  {
-    id: 'annual',
-    name: 'Annual',
-    price: '₹1,195',
-    subtext: 'per year (₹99.58/mo)',
-    features: ['All Pro Features', 'Best Value', 'Priority Support', 'GST Invoices'],
-    color: 'bg-purple-600 text-white',
-    buttonText: 'Go Annual'
-  }
-];

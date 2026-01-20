@@ -12,13 +12,20 @@ export interface ResumeData {
     linkedin: string;
     portfolio: string;
     summary: string;
+    profileImage?: string; // Base64 string of the uploaded/cropped image
   };
   experience: Experience[];
   education: Education[];
-  skills: string[];
+  skills: Skill[];
   languages: string[];
   projects: Project[];
   certifications: string[];
+  hobbies: string[];
+}
+
+export interface Skill {
+  name: string;
+  level: number; // 0 to 100
 }
 
 export interface Experience {

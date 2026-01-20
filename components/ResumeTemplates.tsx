@@ -1,5 +1,6 @@
 import React from 'react';
 import { ResumeData } from '../types';
+import { ExternalLink } from 'lucide-react';
 
 interface TemplateProps {
   data: ResumeData;
@@ -13,88 +14,95 @@ export const MasterTemplateSelector: React.FC<TemplateProps> = ({ data }) => {
 };
 
 /**
- * PIXEL-PERFECT YUKI BLUE (Exact Screenshot Replication)
- * Proportions: Sidebar (35%) | Main Content (65%)
+ * PIXEL-PERFECT YUKI BLUE (Zety Cascade Clone)
  */
 const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
-  // Specific color codes from the Zety screenshot analysis
-  const sidebarBlue = "#2088e5"; // Bright Professional Blue
-  const headerBarBlue = "#1664c0"; // Darker Header Bar Blue (for section titles)
-  const accentBlue = "#1e88e5"; // Section Title Blue for main content
+  const sidebarPadding = "px-9";
 
   return (
-    <div className="bg-white min-h-[29.7cm] w-full flex font-sans text-[#333] overflow-hidden shadow-sm">
-      {/* LEFT SIDEBAR (Widened to 35% to make name area wider) */}
-      <div className="w-[35%] bg-[#2088e5] text-white flex flex-col shrink-0">
-        <div className="flex flex-col pl-8 pr-10 pt-8 pb-2">
-          {/* Circular Profile Photo - Centered in top area */}
-          <div className="w-36 h-36 mb-6 rounded-full border-[6px] border-white/20 overflow-hidden bg-white/10 flex items-center justify-center self-center shadow-lg">
-            <img 
-              src="https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=300&h=300" 
-              alt={data.personalInfo.fullName} 
-              className="w-full h-full object-cover" 
-            />
+    <div className="bg-white min-h-[29.7cm] w-[210mm] flex font-sans text-[#333] overflow-hidden shadow-sm selection:bg-blue-100">
+      {/* LEFT SIDEBAR (33%) */}
+      <div className="w-[33%] bg-[#004b93] text-white flex flex-col shrink-0 min-h-full pb-12">
+        {/* Photo Container */}
+        {data.personalInfo.profileImage && (
+          <div className="pt-14 pb-8 flex justify-center">
+            <div className="w-40 h-40 rounded-full border-[6px] border-white/10 overflow-hidden bg-white/5 flex items-center justify-center shadow-2xl">
+              <img 
+                src={data.personalInfo.profileImage} 
+                alt={data.personalInfo.fullName} 
+                className="w-full h-full object-cover" 
+              />
+            </div>
           </div>
-          
-          {/* Name: Reduced font weight, line height (leading-[1]), and bottom margin */}
-          <h1 className="text-[40px] font-bold uppercase leading-[1] text-left w-full tracking-tighter mb-2">
-            {data.personalInfo.fullName.split(' ').map((part, i) => (
-              <React.Fragment key={i}>
-                {part}
-                {i < data.personalInfo.fullName.split(' ').length - 1 && <br />}
-              </React.Fragment>
-            ))}
-          </h1>
-        </div>
-        
-        <div className="w-full flex flex-col pb-12">
-          {/* SIDEBAR SECTION: CONTACT */}
-          <section>
-            <div className="bg-[#1664c0] px-8 py-3.5 mb-6">
-              <h2 className="text-[14px] font-black uppercase tracking-[0.2em]">Contact</h2>
+        )}
+
+        <div className={`flex flex-col ${!data.personalInfo.profileImage ? 'pt-14' : ''}`}>
+          {/* CONTACT SECTION */}
+          <section className="mb-10">
+            <div className="bg-black/15 px-9 py-2.5 mb-6">
+              <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Contact</h2>
             </div>
-            {/* Increased text size from 11px to 13px */}
-            <div className="px-8 space-y-5 text-[13px]">
-              <div>
-                <p className="font-bold text-white mb-0.5 uppercase tracking-tighter">Address</p>
-                <p className="text-white/90 font-medium leading-tight">{data.personalInfo.location || 'Portland, ME 04108'}</p>
+            <div className={`${sidebarPadding} space-y-5 text-[11px]`}>
+              <div className="space-y-1">
+                <p className="font-bold opacity-50 uppercase tracking-tighter text-[9px]">Address</p>
+                <p className="font-semibold leading-relaxed text-white/90">{data.personalInfo.location || 'Location'}</p>
               </div>
-              <div>
-                <p className="font-bold text-white mb-0.5 uppercase tracking-tighter">Phone</p>
-                <p className="text-white/90 font-medium">{data.personalInfo.phone || '(555) 555-5555'}</p>
+              <div className="space-y-1">
+                <p className="font-bold opacity-50 uppercase tracking-tighter text-[9px]">Phone</p>
+                <p className="font-semibold text-white/90">{data.personalInfo.phone || 'Phone'}</p>
               </div>
-              <div>
-                <p className="font-bold text-white mb-0.5 uppercase tracking-tighter">E-mail</p>
-                <p className="text-white/90 font-medium break-all leading-snug">{data.personalInfo.email || 'yuki@example.com'}</p>
+              <div className="space-y-1">
+                <p className="font-bold opacity-50 uppercase tracking-tighter text-[9px]">E-mail</p>
+                <p className="font-semibold text-white/90 break-all leading-snug">{data.personalInfo.email || 'Email'}</p>
               </div>
             </div>
           </section>
 
-          {/* SIDEBAR SECTION: SKILLS (Pill Tags) */}
-          <section className="mt-12">
-            <div className="bg-[#1664c0] px-8 py-3.5 mb-6">
-              <h2 className="text-[14px] font-black uppercase tracking-[0.2em]">Skills</h2>
+          {/* SKILLS SECTION */}
+          <section className="mb-10">
+            <div className="bg-black/15 px-9 py-2.5 mb-6">
+              <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Skills</h2>
             </div>
-            <div className="px-8 flex flex-wrap gap-2.5">
-              {(data.skills.length > 0 ? data.skills : ['Data Analysis', 'Python', 'ML']).map((skill, i) => (
-                <div key={i} className="bg-transparent px-3 py-1.5 rounded-full text-[9px] font-black border border-white/50 text-center uppercase tracking-widest leading-none">
-                  {skill}
-                </div>
-              ))}
-            </div>
-          </section>
-
-          {/* SIDEBAR SECTION: LANGUAGES */}
-          {data.languages && data.languages.length > 0 && (
-            <section className="mt-12">
-              <div className="bg-[#1664c0] px-8 py-3.5 mb-6">
-                <h2 className="text-[14px] font-black uppercase tracking-[0.2em]">Languages</h2>
-              </div>
-              <div className="px-8 flex flex-wrap gap-2.5">
-                {data.languages.map((lang, i) => (
-                  <div key={i} className="bg-transparent px-3 py-1.5 rounded-full text-[9px] font-black border border-white/50 text-center uppercase tracking-widest leading-none">
-                    {lang}
+            <div className={`${sidebarPadding} space-y-4`}>
+              {data.skills.length > 0 ? data.skills.map((skill, i) => (
+                <div key={i} className="space-y-2">
+                  <p className="text-[11px] font-bold leading-tight text-white/90">{skill.name}</p>
+                  <div className="w-full h-[3px] bg-white/20 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-white rounded-full transition-all duration-1000" 
+                      style={{ width: `${skill.level}%` }}
+                    ></div>
                   </div>
+                </div>
+              )) : (
+                <p className="text-[10px] opacity-40 italic px-9">Add skills in builder...</p>
+              )}
+            </div>
+          </section>
+
+          {/* LANGUAGES SECTION */}
+          {data.languages && data.languages.length > 0 && (
+            <section className="mb-10">
+              <div className="bg-black/15 px-9 py-2.5 mb-6">
+                <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Languages</h2>
+              </div>
+              <div className={`${sidebarPadding} space-y-3`}>
+                {data.languages.map((lang, i) => (
+                  <p key={i} className="text-[11px] font-bold text-white/90">{lang}</p>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* HOBBIES SECTION - SIDEBAR DYNAMIC FIELD */}
+          {data.hobbies && data.hobbies.length > 0 && (
+            <section>
+              <div className="bg-black/15 px-9 py-2.5 mb-6">
+                <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Hobbies</h2>
+              </div>
+              <div className={`${sidebarPadding} space-y-3`}>
+                {data.hobbies.map((hobby, i) => (
+                  <p key={i} className="text-[11px] font-bold text-white/90">{hobby}</p>
                 ))}
               </div>
             </section>
@@ -102,83 +110,122 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
         </div>
       </div>
       
-      {/* MAIN CONTENT (Reduced space-y to 6 for tighter section grouping) */}
-      <div className="flex-1 pt-12 pb-12 pl-10 pr-12 md:pt-14 md:pb-14 md:pl-10 md:pr-14 space-y-6 bg-white">
-        {/* Professional Summary */}
-        <section>
-          <p className="text-[14px] text-[#444] font-medium leading-[1.65]">
-            {data.personalInfo.summary || 'Strategic professional with extensive experience in driving growth through data-driven solutions.'}
+      {/* MAIN CONTENT (67%) */}
+      <div className="flex-1 flex flex-col bg-white">
+        <header className="pl-12 pr-12 pt-14 pb-10 border-b border-gray-100 flex flex-col items-start justify-center">
+          <h1 className="text-[38px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-3 whitespace-nowrap">
+            {data.personalInfo.fullName || 'Your Name'}
+          </h1>
+          <p className="text-[15px] font-bold text-[#004b93] uppercase tracking-[0.1em] leading-tight">
+            {data.personalInfo.location || 'Professional Title'}
           </p>
-          {/* Reduced margin-top for the divider line significantly */}
-          <div className="w-full h-[1px] bg-gray-100 mt-4" />
-        </section>
+        </header>
 
-        {/* WORK HISTORY */}
-        <section className="space-y-4">
-          <div className="flex items-center space-x-4 border-b border-gray-100 pb-2 mb-4">
-             <h2 className="text-[20px] font-black text-[#1e88e5] uppercase tracking-tight leading-none">Work History</h2>
-          </div>
-          <div className="space-y-8">
-            {data.experience.map(exp => (
-              <div key={exp.id} className="grid grid-cols-12 gap-4">
-                {/* Left side: Dates - Compact col-span-2 */}
-                <div className="col-span-2 text-[11px] font-bold text-gray-400 pt-1 leading-relaxed">
-                  {exp.startDate} -<br/>
-                  {exp.endDate || (exp.current ? 'Present' : '')}
-                </div>
-                {/* Right side: Role, Company, Description - Tightened space-y-0.5 */}
-                <div className="col-span-10 space-y-0.5">
-                  <h3 className="text-[18px] font-black text-gray-900 leading-tight">{exp.position}</h3>
-                  <p className="text-[13px] font-bold text-gray-500 italic mb-7">
-                    {exp.company}, {exp.location}
-                  </p>
-                  <ul className="list-disc pl-5 text-[13px] text-[#555] space-y-2 font-medium leading-relaxed mt-2">
-                    {exp.description.split('\n').filter(l => l.trim()).map((line, i) => (
-                      <li key={i}>{line}</li>
-                    ))}
+        <div className="pl-12 pr-12 py-12 space-y-12">
+          {/* SUMMARY */}
+          <section>
+            <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+               <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Summary</h2>
+            </div>
+            <p className="text-[12px] text-slate-700 font-medium leading-[1.7] text-justify">
+              {data.personalInfo.summary || 'Write a brief professional summary here to highlight your key strengths and achievements...'}
+            </p>
+          </section>
+
+          {/* EXPERIENCE */}
+          <section>
+            <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+               <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Experience</h2>
+            </div>
+            <div className="space-y-10">
+              {data.experience.length > 0 ? data.experience.map(exp => (
+                <div key={exp.id} className="space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div className="space-y-1">
+                      <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight">{exp.position}</h3>
+                      <p className="text-[12px] font-bold text-[#004b93] italic leading-none">{exp.company}{exp.location ? `, ${exp.location}` : ''}</p>
+                    </div>
+                    <div className="text-right">
+                      <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">
+                        {exp.startDate} — {exp.endDate || (exp.current ? 'Present' : '')}
+                      </span>
+                    </div>
+                  </div>
+                  <ul className="list-disc pl-5 text-[11px] text-slate-600 space-y-2 font-medium leading-relaxed marker:text-[#004b93]">
+                    {exp.description ? exp.description.split('\n').filter(l => l.trim()).map((line, i) => (
+                      <li key={i} className="pl-1">{line}</li>
+                    )) : <li className="italic text-slate-300">Details pending...</li>}
                   </ul>
                 </div>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        {/* CERTIFICATIONS */}
-        {data.certifications && data.certifications.length > 0 && (
-          <section className="space-y-4">
-            <div className="flex items-center space-x-4 border-b border-gray-100 pb-2 mb-4">
-               <h2 className="text-[20px] font-black text-[#1e88e5] uppercase tracking-tight leading-none">Certifications</h2>
+              )) : (
+                <p className="text-[11px] text-slate-300 italic">Add experience in the builder...</p>
+              )}
             </div>
-            <ul className="list-disc pl-10 text-[13px] text-[#555] space-y-3 font-medium leading-relaxed">
-              {data.certifications.map((cert, i) => (
-                <li key={i}>{cert}</li>
-              ))}
-            </ul>
           </section>
-        )}
 
-        {/* EDUCATION */}
-        <section className="space-y-4">
-          <div className="flex items-center space-x-4 border-b border-gray-100 pb-2 mb-4">
-             <h2 className="text-[20px] font-black text-[#1e88e5] uppercase tracking-tight leading-none">Education</h2>
-          </div>
-          <div className="space-y-8">
-            {data.education.map(edu => (
-              <div key={edu.id} className="grid grid-cols-12 gap-4">
-                <div className="col-span-2 text-[11px] font-bold text-gray-400 pt-1 leading-relaxed">
-                  {edu.startDate}
-                </div>
-                {/* Right side: Degree, School - Tightened space-y-0.5 */}
-                <div className="col-span-10 space-y-0.5">
-                  <h3 className="text-[18px] font-black text-gray-900 leading-tight">{edu.degree}</h3>
-                  <p className="text-[13px] font-bold text-gray-500 italic mb-6">
-                    {edu.school}, {edu.location}
-                  </p>
-                </div>
+          {/* PROJECTS - MAIN CONTENT DYNAMIC FIELD */}
+          {data.projects && data.projects.length > 0 && (
+            <section>
+              <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+                <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Projects</h2>
               </div>
-            ))}
-          </div>
-        </section>
+              <div className="space-y-8">
+                {data.projects.map(project => (
+                  <div key={project.id} className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-[13px] font-black text-slate-900 uppercase tracking-tight">{project.name}</h3>
+                      {project.link && (
+                        <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-[#004b93] flex items-center font-bold">
+                          View Project <ExternalLink className="w-2.5 h-2.5 ml-1" />
+                        </a>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-600 font-medium leading-relaxed">{project.description}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* EDUCATION */}
+          <section>
+            <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+               <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Education</h2>
+            </div>
+            <div className="space-y-8">
+              {data.education.length > 0 ? data.education.map(edu => (
+                <div key={edu.id} className="flex justify-between items-start">
+                  <div className="space-y-1.5">
+                    <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight leading-tight">{edu.degree}</h3>
+                    <p className="text-[12px] font-bold text-slate-500 italic leading-none">{edu.school}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-[11px] font-black text-slate-900 uppercase tracking-tight">{edu.startDate}</span>
+                  </div>
+                </div>
+              )) : (
+                <p className="text-[11px] text-slate-300 italic">Add education in the builder...</p>
+              )}
+            </div>
+          </section>
+
+          {/* CERTIFICATIONS */}
+          {data.certifications && data.certifications.length > 0 && (
+            <section>
+              <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+                <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Certifications</h2>
+              </div>
+              <div className="space-y-3">
+                {data.certifications.map((cert, idx) => (
+                  <div key={idx} className="flex items-center space-x-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#004b93] shrink-0" />
+                    <p className="text-[11px] font-bold text-slate-700">{cert}</p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          )}
+        </div>
       </div>
     </div>
   );

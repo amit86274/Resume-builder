@@ -1,3 +1,4 @@
+
 import React from 'react';
 import Navbar from './Navbar';
 import { Sparkles, Linkedin, Chrome, Github } from 'lucide-react';
@@ -52,7 +53,6 @@ const Layout: React.FC<LayoutProps> = ({
               <h4 className="text-white font-black text-xs uppercase tracking-widest">Solutions</h4>
               <ul className="space-y-4 text-xs font-bold">
                 <li><button onClick={() => onNavigate('builder')} className="hover:text-blue-400 transition-colors uppercase tracking-wider">Resume Builder</button></li>
-                <li><button onClick={() => onNavigate('analyzer')} className="hover:text-blue-400 transition-colors uppercase tracking-wider">ATS Analyzer</button></li>
                 <li><button onClick={() => onNavigate('templates')} className="hover:text-blue-400 transition-colors uppercase tracking-wider">Templates Gallery</button></li>
               </ul>
             </div>

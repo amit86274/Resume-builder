@@ -1,3 +1,4 @@
+
 'use client';
 
 import React from 'react';
@@ -39,7 +40,6 @@ export default function RootLayout({ children }: { children?: React.ReactNode })
               <h4 className="text-white font-black text-xs uppercase tracking-[0.2em]">Solutions</h4>
               <ul className="space-y-4 text-[13px] font-bold">
                 <li><Link href="/builder" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">Resume Builder</Link></li>
-                <li><Link href="/analyzer" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">ATS Analyzer</Link></li>
                 <li><Link href="/templates" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">Templates Gallery</Link></li>
               </ul>
             </div>

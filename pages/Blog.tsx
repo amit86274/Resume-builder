@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { BookOpen, ArrowRight, Clock, User } from 'lucide-react';
 
@@ -14,7 +13,7 @@ const articles = [
     author: "Arjun Mehta",
     date: "Oct 24, 2023",
     readTime: "5 min read",
-    image: "https://images.unsplash.com/photo-1586281380349-632531db7ed4?auto=format&fit=crop&q=80&w=800"
+    image: "http://c2fashionstudio.com/trendplatform/wp-content/themes/hello-theme-child/img/resume/resume1.jpeg"
   },
   {
     title: "The Ultimate Guide to ATS-Friendly Resumes",

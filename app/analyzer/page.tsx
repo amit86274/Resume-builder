@@ -1,15 +1,20 @@
+
 'use client';
 
-import React from 'react';
-import Onboarding from '../../pages/Onboarding';
+import React, { useEffect } from 'react';
 import { useRouter } from '../../services/router';
 
 export default function AnalyzerPage() {
   const { push } = useRouter();
   
-  const handleUploadSuccess = () => {
-    push('/builder');
-  };
+  useEffect(() => {
+    // Redirect anyone trying to reach /analyzer back to the start
+    push('/resume-option');
+  }, [push]);
 
-  return <Onboarding onSelectUpload={handleUploadSuccess} />;
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-white">
+      <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-blue-600"></div>
+    </div>
+  );
 }
