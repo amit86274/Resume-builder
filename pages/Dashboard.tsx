@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { 
   FileText, Plus, Clock, BarChart3, 
@@ -21,7 +20,28 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onUpdateUser })
 
   useEffect(() => {
     loadData();
+    handlePendingSave();
   }, [user.id]);
+
+  const handlePendingSave = async () => {
+    const pending = localStorage.getItem('resumaster_pending_save');
+    if (pending) {
+      try {
+        const resumeData = JSON.parse(pending);
+        await MockAPI.saveResume(user.id, {
+          ...resumeData,
+          userId: user.id,
+          title: resumeData.personalInfo.fullName ? `${resumeData.personalInfo.fullName}'s Resume` : 'Imported Resume',
+          lastEdited: new Date().toISOString()
+        });
+        localStorage.removeItem('resumaster_pending_save');
+        localStorage.removeItem('resumaster_current_draft'); // Clear guest draft
+        await loadData(); // Refresh list to show the new item
+      } catch (e) {
+        console.error("Error saving pending resume", e);
+      }
+    }
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -53,6 +73,12 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onUpdateUser })
     }
   };
 
+  const handleEditResume = (resume: any) => {
+    // Store in draft key so builder can pick it up
+    localStorage.setItem('resumaster_current_draft', JSON.stringify(resume));
+    onNavigate(`builder?id=${resume.id}`);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/50 pt-12 pb-24 px-4">
       {isUpgrading && (
@@ -62,7 +88,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onUpdateUser })
                 <Loader2 className="w-10 h-10 text-blue-600 animate-spin" />
              </div>
              <h3 className="text-2xl font-black mb-2">Processing Payment</h3>
-             <p className="text-slate-500 font-medium mb-8">Securely connecting to Razorpay Gateway...</p>
+             <p className="text-slate-500 font-medium mb-8">Securely connecting to Gateway...</p>
              <div className="flex items-center justify-center space-x-2 grayscale opacity-40">
                 <ShieldAlert className="w-4 h-4" />
                 <span className="text-[10px] font-black uppercase tracking-widest">PCI-DSS Secure</span>
@@ -77,7 +103,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onUpdateUser })
             <h1 className="text-4xl font-black text-slate-900">Hi, {user.name.split(' ')[0]}!</h1>
             <p className="text-slate-500 font-medium">Manage your professional documents and AI analysis here.</p>
           </div>
-          <button onClick={() => onNavigate('builder')} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black flex items-center hover:bg-blue-600 transition-all shadow-xl">
+          <button onClick={() => { localStorage.removeItem('resumaster_current_draft'); onNavigate('builder'); }} className="bg-slate-900 text-white px-8 py-4 rounded-2xl font-black flex items-center hover:bg-blue-600 transition-all shadow-xl">
             <Plus className="w-5 h-5 mr-2" /> New Resume
           </button>
         </div>
@@ -98,23 +124,34 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onNavigate, onUpdateUser })
                   <p className="text-slate-400 font-bold">No documents yet. Click 'New Resume' to start.</p>
                 </div>
               ) : (
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {resumes.map(r => (
-                    <div key={r.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex items-center justify-between hover:shadow-xl transition-all group">
-                      <div className="flex items-center space-x-6">
+                    <div key={r.id} className="bg-white p-6 rounded-[2rem] border border-slate-100 flex flex-col hover:shadow-xl transition-all group relative">
+                      <div className="flex items-center space-x-4 mb-6">
                         <div className="w-12 h-12 bg-slate-50 rounded-xl flex items-center justify-center text-slate-300 group-hover:text-blue-600 transition-colors">
                           <FileText className="w-6 h-6" />
                         </div>
                         <div>
-                          <h3 className="font-black text-slate-900">{r.title || 'Untitled'}</h3>
-                          <p className="text-xs text-slate-400 flex items-center mt-1">
+                          <h3 className="font-black text-slate-900 line-clamp-1">{r.title || 'Untitled'}</h3>
+                          <p className="text-[10px] text-slate-400 flex items-center mt-1 uppercase tracking-widest font-black">
                             <Clock className="w-3 h-3 mr-1" /> {new Date(r.lastEdited).toLocaleDateString()}
                           </p>
                         </div>
                       </div>
-                      <div className="flex space-x-2">
-                        <button onClick={() => onNavigate('builder')} className="p-3 text-slate-400 hover:text-blue-600 transition-colors"><Edit3 className="w-5 h-5" /></button>
-                        <button onClick={() => handleDelete(r.id)} className="p-3 text-slate-400 hover:text-red-500 transition-colors"><Trash2 className="w-5 h-5" /></button>
+                      
+                      <div className="flex space-x-3 mt-auto">
+                        <button 
+                          onClick={() => handleEditResume(r)} 
+                          className="flex-1 py-3 bg-blue-50 text-blue-600 rounded-xl font-black text-[10px] uppercase tracking-widest hover:bg-blue-600 hover:text-white transition-all"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => handleDelete(r.id)} 
+                          className="p-3 text-slate-300 hover:text-red-500 transition-colors"
+                        >
+                          <Trash2 className="w-5 h-5" />
+                        </button>
                       </div>
                     </div>
                   ))}

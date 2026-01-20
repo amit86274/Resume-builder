@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ChevronRight, ChevronLeft, Plus, Trash2, Sparkles, 
@@ -7,7 +6,8 @@ import {
   X, Loader2, Info, Save, Languages, Award, User,
   Camera, Linkedin, ChevronDown, Lightbulb, Wand2, Search,
   Star, Keyboard, Crop, Image as ImageIcon, Maximize, Move, Sliders, Type,
-  Globe, BadgeCheck, Palette, Rocket, Link as LinkIcon, FileText, CheckCircle2
+  Globe, BadgeCheck, Palette, Rocket, Link as LinkIcon, FileText, CheckCircle2,
+  Undo2, CloudUpload
 } from 'lucide-react';
 import { ResumeData, TemplateTier, Experience, Education, Skill, Project } from '../types';
 import { INITIAL_RESUME, TEMPLATES, MOCK_RESUME_DATA } from '../constants';
@@ -19,6 +19,7 @@ import {
   generateSummarySuggestions,
   improveSummary 
 } from '../services/gemini';
+import { MockAPI } from '../services/api';
 
 const MONTHS = ['Month', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const YEARS = ['Year', ...Array.from({ length: 60 }, (_, i) => (new Date().getFullYear() - i).toString())];
@@ -45,41 +46,38 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const fileInputRef = useRef<HTMLInputElement>(null);
   
   const [data, setData] = useState<ResumeData>(() => {
-    const base = {
+    // Try to restore draft if available
+    const savedDraft = localStorage.getItem('resumaster_current_draft');
+    if (savedDraft && !prefilledData) {
+      try {
+        return JSON.parse(savedDraft);
+      } catch (e) {
+        console.error("Draft restore error", e);
+      }
+    }
+
+    const baseTemplateId = initialTemplateId || searchParams.get('template') || INITIAL_RESUME.templateId;
+    
+    const base: ResumeData = {
       ...INITIAL_RESUME,
-      templateId: initialTemplateId || searchParams.get('template') || INITIAL_RESUME.templateId
+      templateId: baseTemplateId,
+      id: `resume_${Math.random().toString(36).substring(7)}`,
+      lastEdited: new Date().toISOString()
     };
 
     if (prefilledData) {
-      // Merge prefilled data and ensure IDs exist for all list items
       return {
         ...base,
         personalInfo: {
           ...base.personalInfo,
           ...prefilledData.personalInfo,
         },
-        experience: (prefilledData.experience || []).map(exp => ({
-          ...exp,
-          id: exp.id || Math.random().toString(36).substring(7),
-          isRemote: exp.isRemote || false,
-          current: exp.current || false,
-          description: exp.description || '',
-        })) as Experience[],
-        education: (prefilledData.education || []).map(edu => ({
-          ...edu,
-          id: edu.id || Math.random().toString(36).substring(7),
-        })) as Education[],
-        skills: (prefilledData.skills || []).map(skill => ({
-          ...skill,
-          level: skill.level || 80,
-        })) as Skill[],
-        projects: (prefilledData.projects || []).map(proj => ({
-          ...proj,
-          id: proj.id || Math.random().toString(36).substring(7),
-        })) as Project[],
-        languages: prefilledData.languages || [],
-        certifications: prefilledData.certifications || [],
-        hobbies: prefilledData.hobbies || [],
+        experience: Array.isArray(prefilledData.experience) ? prefilledData.experience : [],
+        education: Array.isArray(prefilledData.education) ? prefilledData.education : [],
+        skills: Array.isArray(prefilledData.skills) ? prefilledData.skills : [],
+        languages: Array.isArray(prefilledData.languages) ? prefilledData.languages : [],
+        certifications: Array.isArray(prefilledData.certifications) ? prefilledData.certifications : [],
+        projects: Array.isArray(prefilledData.projects) ? prefilledData.projects : [],
       };
     }
     return base;
@@ -92,17 +90,15 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const [isGenerating, setIsGenerating] = useState(false);
   const [showAiPanel, setShowAiPanel] = useState<string | null>(null);
 
-  // Summary logic
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [summarySuggestions, setSummarySuggestions] = useState<string[]>([]);
+  const [summaryHistory, setSummaryHistory] = useState<string[]>([]);
 
-  // Additional info logic
   const [manualLang, setManualLang] = useState('');
   const [manualCert, setManualCert] = useState('');
   const [manualHobby, setManualHobby] = useState('');
   const [projectForm, setProjectForm] = useState<Partial<Project>>({ name: '', link: '', description: '' });
 
-  // Photo & Cropping State
   const [isCropping, setIsCropping] = useState(false);
   const [tempImage, setTempImage] = useState<string | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -112,10 +108,10 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
 
-  // Skills specific state
   const [suggestedSkills, setSuggestedSkills] = useState<string[]>([]);
   const [isSkillsLoading, setIsSkillsLoading] = useState(false);
   const [manualSkill, setManualSkill] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const steps = [
     { id: 'heading', title: 'Heading', number: 1 },
@@ -131,6 +127,9 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   ];
 
   useEffect(() => {
+    // Auto-save draft
+    localStorage.setItem('resumaster_current_draft', JSON.stringify(data));
+
     let score = 0;
     if (data.personalInfo.fullName) score += 10;
     if (data.experience.length > 0) score += 15;
@@ -174,24 +173,15 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     if (field === 'education') setEduSubStep('form');
   };
 
-  const handleDateUpdate = (id: string, field: 'startDate' | 'endDate', part: 'month' | 'year', value: string, type: 'experience' | 'education') => {
-    const items = type === 'experience' ? data.experience : data.education;
-    const item = items.find(e => e.id === id);
-    if (!item) return;
-    
-    const currentVal = (item[field as keyof (Experience | Education)] as string) || '';
-    const parts = currentVal.split(' ');
-    let month = parts[0] || '';
-    let year = parts[1] || '';
-    
-    if (part === 'month') month = value === 'Month' ? '' : value;
-    else year = value === 'Year' ? '' : value;
-    
-    const newVal = `${month} ${year}`.trim();
-    updateArrayItem(type, id, field, newVal);
+  const handleAutoSkillFetch = async () => {
+    setIsSkillsLoading(true);
+    const query = data.personalInfo.location || data.experience[0]?.position || 'Professional';
+    try {
+      const skills = await getSkillSuggestions(query);
+      setSuggestedSkills(skills);
+    } catch (e) { console.error(e); } finally { setIsSkillsLoading(false); }
   };
 
-  // AI Summary Logic
   const handleFetchSummarySuggestions = async () => {
     setIsSummaryLoading(true);
     const title = data.personalInfo.location || data.experience[0]?.position || 'Professional';
@@ -199,29 +189,39 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     try {
       const suggestions = await generateSummarySuggestions(title, skillsList);
       setSummarySuggestions(suggestions);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSummaryLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setIsSummaryLoading(false); }
   };
 
   const handleImproveSummary = async () => {
     if (!data.personalInfo.summary) return;
     setIsSummaryLoading(true);
+    
+    // Save current summary to history before AI modification
+    setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
+    
     const title = data.personalInfo.location || data.experience[0]?.position || 'Professional';
     const skillsList = data.skills.map(s => s.name);
     try {
       const improved = await improveSummary(data.personalInfo.summary, title, skillsList);
       handlePersonalInfoUpdate('summary', improved);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsSummaryLoading(false);
-    }
+    } catch (e) { console.error(e); } finally { setIsSummaryLoading(false); }
   };
 
-  // Photo Logic
+  const handleUndoSummary = () => {
+    if (summaryHistory.length === 0) return;
+    const [lastVersion, ...rest] = summaryHistory;
+    handlePersonalInfoUpdate('summary', lastVersion);
+    setSummaryHistory(rest);
+  };
+
+  const handleSelectSummarySuggestion = (suggestion: string) => {
+    // Save current summary to history before applying suggestion
+    if (data.personalInfo.summary) {
+      setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
+    }
+    handlePersonalInfoUpdate('summary', suggestion);
+  };
+
   const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
@@ -289,22 +289,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     if (isCropping && imgRef.current) drawCanvas();
   }, [isCropping, zoom, cropOffset]);
 
-  const handleMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
-    setIsDragging(true);
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    setDragStart({ x: clientX - cropOffset.x, y: clientY - dragStart.y });
-  };
-
-  const handleMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
-    if (!isDragging) return;
-    const clientX = 'touches' in e ? e.touches[0].clientX : e.clientX;
-    const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
-    setCropOffset({ x: clientX - dragStart.x, y: clientY - dragStart.y });
-  };
-
-  const handleMouseUp = () => setIsDragging(false);
-
   const fetchAiSuggestions = async (expId: string, jobTitle: string) => {
     if (!jobTitle) { alert("Please enter a job title first."); return; }
     setIsGenerating(true);
@@ -313,16 +297,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       const suggestions = await getResponsibilitiesSuggestions(jobTitle);
       setAiSuggestions(suggestions);
     } catch (e) { console.error(e); } finally { setIsGenerating(false); }
-  };
-
-  const handleAutoSkillFetch = async () => {
-    setIsSkillsLoading(true);
-    const query = data.personalInfo.location || data.experience[0]?.position || 'Professional';
-    const existingNames = data.skills.map(s => s.name);
-    try {
-      const skills = await getSkillSuggestions(query, existingNames);
-      setSuggestedSkills(skills);
-    } catch (e) { console.error(e); } finally { setIsSkillsLoading(false); }
   };
 
   const handleAddManualSkill = (e?: React.FormEvent) => {
@@ -358,6 +332,36 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     return 'Novice';
   };
 
+  const handleDownloadPdf = () => {
+    window.print();
+  };
+
+  const handleSaveToDashboard = async () => {
+    if (!user) {
+      // Save current progress to a separate "pending" key for retrieval after auth
+      localStorage.setItem('resumaster_pending_save', JSON.stringify(data));
+      push('/signup?redirect=dashboard');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      await MockAPI.saveResume(user.id, {
+        ...data,
+        title: data.personalInfo.fullName ? `${data.personalInfo.fullName}'s Resume` : 'My Resume',
+        lastEdited: new Date().toISOString()
+      });
+      // Clear draft once saved to cloud
+      localStorage.removeItem('resumaster_current_draft');
+      push('/dashboard');
+    } catch (err) {
+      alert("Error saving your resume. Please check your connection.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  // Rendering logic...
   const renderHeadingStep = () => (
     <div className="max-w-3xl w-full mx-auto animate-in fade-in duration-500">
       <div className="mb-10">
@@ -424,7 +428,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
               <button onClick={() => setIsCropping(false)} className="p-3 hover:bg-slate-100 rounded-full transition-colors text-slate-400"><X className="w-6 h-6" /></button>
             </div>
             <div className="p-10 flex flex-col items-center space-y-10">
-              <div className="relative cursor-move select-none" onMouseDown={handleMouseDown} onMouseMove={handleMouseMove} onMouseUp={handleMouseUp} onMouseLeave={handleMouseUp} onTouchStart={handleMouseDown} onTouchMove={handleMouseMove} onTouchEnd={handleMouseUp}>
+              <div className="relative cursor-move select-none" onMouseDown={(e) => { setIsDragging(true); setDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y }); }} onMouseMove={(e) => { if(isDragging) setCropOffset({ x: e.clientX - dragStart.x, y: e.clientY - dragStart.y }); }} onMouseUp={() => setIsDragging(false)} onMouseLeave={() => setIsDragging(false)}>
                 <canvas ref={canvasRef} className="rounded-full shadow-2xl border-4 border-white bg-white" width={400} height={400} />
               </div>
               <div className="w-full max-w-sm space-y-4">
@@ -469,7 +473,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
                 <button onClick={() => fetchAiSuggestions(exp.id, exp.position)} className="flex items-center space-x-1.5 px-4 py-2 bg-blue-50 text-blue-600 rounded-full font-bold text-xs hover:bg-blue-100 transition-all border border-blue-100 mb-2">
                   <Sparkles className="w-3.5 h-3.5" /> <span>AI Suggestions</span>
                 </button>
-                <textarea className="w-full border border-gray-100 rounded-2xl p-6 h-40 text-sm font-medium focus:border-blue-500 transition-all outline-none bg-slate-50/50" value={exp.description} onChange={(e) => updateArrayItem('experience', exp.id, 'description', e.target.value)} />
+                <textarea className="w-full border border-gray-100 rounded-2xl p-6 h-40 text-sm font-medium focus:border-blue-500 transition-all outline-none bg-slate-50/50 text-black" value={exp.description} onChange={(e) => updateArrayItem('experience', exp.id, 'description', e.target.value)} />
               </div>
             </div>
           </div>
@@ -540,7 +544,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       <div className="lg:w-[60%] space-y-6">
         <h2 className="text-sm font-black text-slate-900 uppercase tracking-widest">My Skills:</h2>
         <form onSubmit={handleAddManualSkill} className="relative group">
-          <input type="text" placeholder="Type a skill..." className="w-full border border-gray-200 rounded-2xl pl-12 pr-28 py-5 text-sm font-medium focus:border-blue-600 transition-all outline-none" value={manualSkill} onChange={(e) => setManualSkill(e.target.value)} />
+          <input type="text" placeholder="Type a skill..." className="w-full border border-gray-200 rounded-2xl pl-12 pr-28 py-5 text-sm font-medium focus:border-blue-600 transition-all outline-none text-black" value={manualSkill} onChange={(e) => setManualSkill(e.target.value)} />
           <Keyboard className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
           <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 px-5 py-2.5 bg-slate-900 text-white rounded-xl font-black uppercase tracking-widest text-[10px]">Add</button>
         </form>
@@ -569,25 +573,60 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Write a powerful summary</h2>
         <p className="text-gray-500 font-medium text-lg">Briefly describe your career and key achievements.</p>
       </div>
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-10">
-        <div className="lg:col-span-7 space-y-6">
-          <div className="bg-white p-2 rounded-[2.5rem] shadow-2xl border border-slate-100">
-            <div className="flex justify-between items-center p-6 border-b border-slate-50">
+      
+      <div className="space-y-12">
+        {/* Main Editor */}
+        <div className="w-full space-y-6">
+          <div className="bg-white p-2 rounded-[3.5rem] shadow-2xl border border-slate-100">
+            <div className="flex justify-between items-center p-8 border-b border-slate-50">
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center"><Type className="w-4 h-4 mr-2" /> Content Editor</h3>
-               <button onClick={handleImproveSummary} disabled={!data.personalInfo.summary || isSummaryLoading} className="flex items-center space-x-2 px-4 py-2 bg-blue-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50">
-                  {isSummaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} <span>AI Improve</span>
-               </button>
+               <div className="flex items-center space-x-3">
+                 <button 
+                  onClick={handleUndoSummary} 
+                  disabled={summaryHistory.length === 0} 
+                  className={`flex items-center space-x-2 px-6 py-3 border-2 border-slate-100 rounded-full font-black text-[10px] uppercase tracking-widest transition-all
+                    ${summaryHistory.length > 0 
+                      ? 'bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200' 
+                      : 'bg-slate-50 text-slate-300 cursor-not-allowed border-transparent'
+                    }`}
+                  title="Undo last change"
+                 >
+                    <RotateCcw className="w-3.5 h-3.5" /> <span>Undo</span>
+                 </button>
+                 <button 
+                  onClick={handleImproveSummary} 
+                  disabled={!data.personalInfo.summary || isSummaryLoading} 
+                  className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20"
+                 >
+                    {isSummaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} <span>AI Improve</span>
+                 </button>
+               </div>
             </div>
-            <textarea className="w-full h-80 p-8 text-base font-medium leading-relaxed bg-white outline-none resize-none placeholder:text-slate-200 text-slate-700" placeholder="Describe your professional journey..." value={data.personalInfo.summary} onChange={(e) => handlePersonalInfoUpdate('summary', e.target.value)} />
+            <textarea className="w-full h-80 p-10 text-lg font-medium leading-relaxed bg-white outline-none resize-none placeholder:text-slate-200 text-black" placeholder="Describe your professional journey..." value={data.personalInfo.summary} onChange={(e) => handlePersonalInfoUpdate('summary', e.target.value)} />
           </div>
         </div>
-        <div className="lg:col-span-5 bg-slate-50 p-8 rounded-[2.5rem] border border-slate-100 space-y-6">
-          <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400">AI Suggestions</h3>
-          {isSummaryLoading ? <div className="py-20 flex justify-center"><Loader2 className="w-8 h-8 text-blue-600 animate-spin" /></div> : summarySuggestions.map((suggestion, i) => (
-            <div key={i} onClick={() => handlePersonalInfoUpdate('summary', suggestion)} className="p-5 rounded-2xl bg-white border border-slate-100 hover:border-blue-600 hover:shadow-lg transition-all cursor-pointer group">
-              <p className="text-xs font-medium text-slate-600 leading-relaxed line-clamp-4">{suggestion}</p>
-            </div>
-          ))}
+
+        {/* AI Suggestions Block */}
+        <div className="w-full bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 space-y-8">
+          <div className="flex items-center justify-between">
+            <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">AI Personalization Suggestions</h3>
+            {isSummaryLoading && <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />}
+          </div>
+          
+          <div className="flex flex-col space-y-6">
+            {summarySuggestions.length > 0 ? summarySuggestions.map((suggestion, i) => (
+              <div key={i} onClick={() => handleSelectSummarySuggestion(suggestion)} className="p-8 rounded-[2.5rem] bg-white border border-slate-100 hover:border-blue-600 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col h-full">
+                <p className="text-sm font-medium text-slate-600 leading-relaxed mb-6">{suggestion}</p>
+                <div className="flex items-center text-[10px] font-black text-blue-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
+                  <CheckCircle2 className="w-3 h-3 mr-2" /> Use this Suggestion
+                </div>
+              </div>
+            )) : !isSummaryLoading && (
+              <div className="py-10 text-center text-slate-400 font-bold italic">
+                No suggestions found. Try adding more skills or experience details.
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
@@ -602,7 +641,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       </div>
 
       <div className="space-y-12">
-        {/* Wider Project Form */}
         <div className="p-10 bg-white rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Input label="Project Name" value={projectForm.name} onChange={(v: string) => setProjectForm(p => ({...p, name: v}))} placeholder="e.g. ResuMaster AI Platform" />
@@ -610,7 +648,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
             <div className="md:col-span-2 space-y-2">
               <label className="text-[11px] font-black text-[#1a2b48] uppercase tracking-wider block">Project Description</label>
               <textarea 
-                className="w-full border border-slate-100 rounded-2xl p-6 h-32 text-sm font-medium focus:border-blue-500 outline-none bg-slate-50/50 transition-all placeholder:text-slate-300" 
+                className="w-full border border-slate-100 rounded-2xl p-6 h-32 text-sm font-medium focus:border-blue-500 outline-none bg-slate-50/50 transition-all placeholder:text-slate-300 text-black" 
                 placeholder="Highlight your key contributions, technologies used, and project impact..." 
                 value={projectForm.description} 
                 onChange={(e) => setProjectForm(p => ({...p, description: e.target.value}))} 
@@ -625,7 +663,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
           </button>
         </div>
 
-        {/* Added Projects List */}
         <div className="space-y-4">
           <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-2">Projects Added:</h3>
           {data.projects.length > 0 ? (
@@ -659,7 +696,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">What languages do you speak?</h2>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if(manualLang.trim()) { setData(p => ({...p, languages: [...p.languages, manualLang.trim()]})); setManualLang(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. Hindi (Native), English (Fluent)" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50" value={manualLang} onChange={(e) => setManualLang(e.target.value)} />
+        <input type="text" placeholder="e.g. Hindi (Native), English (Fluent)" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualLang} onChange={(e) => setManualLang(e.target.value)} />
         <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
       </form>
       <div className="flex flex-wrap gap-4">
@@ -680,7 +717,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Any certifications?</h2>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if(manualCert.trim()) { setData(p => ({...p, certifications: [...p.certifications, manualCert.trim()]})); setManualCert(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. AWS Certified Solutions Architect" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50" value={manualCert} onChange={(e) => setManualCert(e.target.value)} />
+        <input type="text" placeholder="e.g. AWS Certified Solutions Architect" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualCert} onChange={(e) => setManualCert(e.target.value)} />
         <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
       </form>
       <div className="space-y-3">
@@ -701,7 +738,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">What are your hobbies?</h2>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if(manualHobby.trim()) { setData(p => ({...p, hobbies: [...p.hobbies, manualHobby.trim()]})); setManualHobby(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. Photography, Reading, Travel" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50" value={manualHobby} onChange={(e) => setManualHobby(e.target.value)} />
+        <input type="text" placeholder="e.g. Photography, Reading, Travel" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualHobby} onChange={(e) => setManualHobby(e.target.value)} />
         <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
       </form>
       <div className="flex flex-wrap gap-4">
@@ -716,24 +753,53 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   );
 
   const renderFinalizeStep = () => (
-    <div className="max-w-4xl w-full mx-auto animate-in fade-in duration-500 pb-20 text-center">
-      <div className="mb-16 space-y-6">
-        <div className="w-24 h-24 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-xl shadow-green-100"><CheckCircle2 className="w-12 h-12" /></div>
-        <h2 className="text-5xl font-black text-slate-900 tracking-tight leading-tight">Resume Ready!</h2>
-        <p className="text-slate-500 text-xl font-medium max-w-xl mx-auto leading-relaxed">You've built a high-performance, ATS-proof resume.</p>
+    <div className="max-w-7xl w-full mx-auto animate-in fade-in duration-500 pb-32">
+      <div className="flex flex-col items-center mb-16 no-print">
+        <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-8 shadow-xl shadow-green-100 animate-bounce">
+          <CheckCircle2 className="w-10 h-10" />
+        </div>
+        <h2 className="text-5xl font-black text-slate-900 tracking-tight text-center mb-4 uppercase">Your Resume is Ready!</h2>
+        <p className="text-slate-500 text-xl font-medium text-center max-w-xl leading-relaxed mb-12">
+          Review your masterpiece below. We've optimized the layout for high-performance job applications.
+        </p>
       </div>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-2xl mx-auto">
-         <button className="flex flex-col items-center justify-center p-10 bg-white border border-slate-100 rounded-[3rem] shadow-xl hover:shadow-2xl hover:border-blue-600 transition-all group">
-            <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Download className="w-8 h-8" /></div>
-            <span className="text-lg font-black text-slate-900 uppercase tracking-widest">Download PDF</span>
-         </button>
-         <button className="flex flex-col items-center justify-center p-10 bg-slate-900 text-white rounded-[3rem] shadow-xl hover:bg-slate-800 transition-all group">
-            <div className="w-16 h-16 bg-white/10 text-white rounded-2xl flex items-center justify-center mb-6 group-hover:scale-110 transition-transform"><Save className="w-8 h-8" /></div>
-            <span className="text-lg font-black uppercase tracking-widest">Save to Dashboard</span>
-         </button>
+
+      {/* BIG CENTERED PREVIEW */}
+      <div className="relative flex justify-center w-full px-4 mb-20">
+         <div className="print-container bg-white shadow-[0_50px_100px_rgba(0,0,0,0.15)] rounded-sm border border-slate-100 overflow-hidden transform-gpu hover:scale-[1.01] transition-transform duration-500">
+            <MasterTemplateSelector data={data} />
+         </div>
+      </div>
+
+      {/* ACTIONS MOVED UNDER RESUME */}
+      <div className="flex flex-col items-center no-print">
+        <div className="flex flex-col sm:flex-row items-center gap-6 w-full max-w-3xl justify-center">
+           <button onClick={handleDownloadPdf} className="flex-1 flex items-center justify-center space-x-4 p-8 bg-blue-600 text-white rounded-[2.5rem] shadow-2xl hover:bg-blue-700 transition-all group w-full transform hover:-translate-y-1">
+              <Download className="w-7 h-7 group-hover:-translate-y-1 transition-transform" />
+              <div className="text-left">
+                <span className="block text-xs font-black uppercase tracking-widest opacity-80">Export Document</span>
+                <span className="text-lg font-black tracking-tight">Download as PDF</span>
+              </div>
+           </button>
+           <button onClick={handleSaveToDashboard} disabled={isSaving} className="flex-1 flex items-center justify-center space-x-4 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl hover:bg-slate-800 transition-all group w-full disabled:opacity-50 transform hover:-translate-y-1">
+              {isSaving ? <Loader2 className="w-7 h-7 animate-spin" /> : <CloudUpload className="w-7 h-7 group-hover:scale-110 transition-transform" />}
+              <div className="text-left">
+                <span className="block text-xs font-black uppercase tracking-widest opacity-80">Cloud Sync</span>
+                <span className="text-lg font-black tracking-tight">{user ? 'Save to Dashboard' : 'Sign up & Save'}</span>
+              </div>
+           </button>
+        </div>
+        
+        <div className="mt-12 flex items-center space-x-4 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]">
+           <span className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> ATS Compatibility: 98%</span>
+           <span className="w-1.5 h-1.5 bg-slate-200 rounded-full" />
+           <span className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Print-Ready Format</span>
+        </div>
       </div>
     </div>
   );
+
+  const isFinalizeStep = activeStep === 9;
 
   return (
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-inter overflow-hidden">
@@ -780,27 +846,36 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
           {activeStep === 8 && renderHobbiesStep()}
           {activeStep === 9 && renderFinalizeStep()}
         </div>
-        <div className="h-28 border-t border-gray-100 flex items-center justify-center md:justify-end px-12 bg-white sticky bottom-0 z-50 shadow-sm">
-          <div className="flex space-x-4">
-            <button className="px-12 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-black uppercase text-xs tracking-widest hover:bg-gray-50 transition-all active:scale-95">Preview</button>
-            <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap ${activeStep === 9 ? 'bg-green-600 text-white shadow-green-500/20' : 'bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90'}`}>
-              {activeStep === 9 ? 'Finish' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" />
-            </button>
+        {!isFinalizeStep && (
+          <div className="h-28 border-t border-gray-100 flex items-center justify-center md:justify-end px-12 bg-white sticky bottom-0 z-50 shadow-sm no-print">
+            <div className="flex space-x-4">
+              <button onClick={() => setActiveStep(9)} className="px-12 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-black uppercase text-xs tracking-widest hover:bg-gray-50 transition-all active:scale-95">Finish Early</button>
+              <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap ${activeStep === 8 ? 'bg-green-600 text-white shadow-green-500/20' : 'bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90'}`}>
+                {activeStep === 8 ? 'Finalize' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" />
+              </button>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
-      <div className="hidden lg:flex w-[400px] bg-slate-50 border-l border-gray-100 p-10 flex-col items-center shrink-0 no-print">
-        <div className="w-full shadow-2xl bg-white rounded-sm overflow-hidden transform hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in border border-slate-200 aspect-[210/297] relative group">
-           <div className="absolute top-0 left-1/2 -translate-x-1/2 origin-top scale-[0.38] w-[210mm] h-[297mm] transition-transform duration-500">
-              <MasterTemplateSelector data={data} />
-           </div>
-           <div className="absolute inset-0 bg-transparent z-10" />
+      {/* Hide right sidebar on finalize screen */}
+      {!isFinalizeStep && (
+        <div className="hidden lg:flex w-[400px] bg-slate-50 border-l border-gray-100 p-10 flex-col items-center shrink-0 no-print">
+          <div className="w-full shadow-2xl bg-white rounded-sm overflow-hidden transform hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in border border-slate-200 aspect-[210/297] relative group">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 origin-top scale-[0.38] w-[210mm] h-[297mm] transition-transform duration-500">
+                <MasterTemplateSelector data={data} />
+             </div>
+             <div className="absolute inset-0 bg-transparent z-10" />
+          </div>
+          <div className="mt-10 space-y-6 text-center">
+            <div className="flex items-center justify-center space-x-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
+               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+               <span>Auto-saving draft...</span>
+            </div>
+            <button onClick={() => push('/templates')} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:text-indigo-700 transition-colors flex items-center mx-auto border-b-2 border-transparent hover:border-blue-600 pb-1 whitespace-nowrap">Change template</button>
+          </div>
         </div>
-        <div className="mt-10 space-y-6 text-center">
-          <button onClick={() => push('/templates')} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:text-indigo-700 transition-colors flex items-center mx-auto border-b-2 border-transparent hover:border-blue-600 pb-1 whitespace-nowrap">Change template</button>
-        </div>
-      </div>
+      )}
     </div>
   );
 };
@@ -808,7 +883,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
 const Input = ({ label, value, onChange, placeholder }: any) => (
   <div className="flex flex-col space-y-2">
     <label className="text-[11px] font-black text-[#1a2b48] uppercase tracking-wider whitespace-nowrap">{label}</label>
-    <input type="text" className="border border-gray-200 rounded-xl px-5 py-4 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none bg-white text-black transition-all placeholder:text-gray-300" value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
+    <input type="text" className="border border-gray-200 rounded-xl px-5 py-4 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none bg-white text-black transition-all placeholder:text-gray-300" value={value || ''} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
   </div>
 );
 
