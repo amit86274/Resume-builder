@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import Navbar from './Navbar';
 import { Sparkles, Linkedin, Chrome, Github } from 'lucide-react';
@@ -24,7 +25,8 @@ const Layout: React.FC<LayoutProps> = ({
 }) => {
   return (
     <div className="min-h-screen flex flex-col bg-white font-inter">
-      {showNavbar && <Navbar onNavigate={onNavigate} currentPage={currentPage} />}
+      {/* Fixed: Removed onNavigate prop which is not supported by the Navbar component's props definition */}
+      {showNavbar && <Navbar currentPage={currentPage} />}
 
       <main className="flex-1">
         {children}

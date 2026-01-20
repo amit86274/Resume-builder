@@ -1,8 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import App from './App';
-import { UserProvider } from './context/UserContext';
-import { RouterProvider } from './services/router';
+import RootLayout from './app/layout';
+import { RouterProvider, RouteHandler } from './services/router';
 
 const rootElement = document.getElementById('root');
 if (rootElement) {
@@ -10,9 +9,9 @@ if (rootElement) {
   root.render(
     <React.StrictMode>
       <RouterProvider>
-        <UserProvider>
-          <App />
-        </UserProvider>
+        <RootLayout>
+          <RouteHandler />
+        </RootLayout>
       </RouterProvider>
     </React.StrictMode>
   );

@@ -1,59 +1,47 @@
-
 import React, { useState } from 'react';
 import { 
   Sparkles, FileText, Layers, 
   ChevronDown, LayoutDashboard, LogOut, Bell, Menu, X, BarChart 
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { useRouter } from '../services/router';
+import { useRouter, Link } from '../services/router';
 
 interface NavbarProps {
-  onNavigate?: (path: string) => void;
   currentPage?: string;
 }
 
-const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage: propCurrentPage }) => {
+const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
   const { user, logout } = useUser();
-  const { push, pathname } = useRouter();
+  const { push } = useRouter();
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
-  // Derive current page from pathname if not provided as a prop
-  const currentPage = propCurrentPage || (pathname === '/' ? 'landing' : pathname.slice(1));
-
   const navItems = [
-    { id: 'builder', label: 'Builder', icon: FileText },
-    { id: 'templates', label: 'Templates', icon: Layers },
+    { id: 'builder', label: 'Builder', icon: FileText, href: '/builder' },
+    { id: 'templates', label: 'Templates', icon: Layers, href: '/templates' },
   ];
 
   const handleLogout = () => {
     logout();
-    if (onNavigate) onNavigate('landing');
-    else push('/landing');
-  };
-
-  const handleNavClick = (path: string) => {
-    if (onNavigate) onNavigate(path);
-    else push(`/${path}`);
-    setIsMobileMenuOpen(false);
+    push('/landing');
   };
 
   return (
     <nav className="bg-white/90 backdrop-blur-xl border-b border-slate-100 sticky top-0 z-[100] no-print h-20 flex items-center shadow-sm">
       <div className="max-w-7xl mx-auto px-6 w-full flex justify-between items-center">
         <div className="flex items-center space-x-12">
-          <button onClick={() => handleNavClick('landing')} className="flex items-center space-x-2.5 group">
+          <Link href="/" className="flex items-center space-x-2.5 group">
             <div className="bg-blue-600 text-white p-2 rounded-[14px] shadow-lg shadow-blue-500/20 group-hover:scale-105 transition-all">
               <Sparkles className="w-5.5 h-5.5" />
             </div>
             <span className="text-xl font-black text-slate-900 tracking-tighter">ResuMaster AI</span>
-          </button>
+          </Link>
 
           <div className="hidden lg:flex items-center space-x-1">
             {navItems.map((item) => (
-              <button
+              <Link
                 key={item.id}
-                onClick={() => handleNavClick(item.id)}
+                href={item.href}
                 className={`flex items-center space-x-2 px-5 py-2.5 rounded-xl transition-all text-sm tracking-tight ${
                   currentPage === item.id 
                     ? 'bg-blue-50 text-blue-600 font-bold' 
@@ -62,7 +50,7 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage: propCurrentPag
               >
                 <item.icon className={`w-4 h-4 ${currentPage === item.id ? 'text-blue-600' : 'text-slate-400'}`} />
                 <span>{item.label}</span>
-              </button>
+              </Link>
             ))}
           </div>
         </div>
@@ -97,13 +85,13 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage: propCurrentPag
                         <p className="text-sm font-bold text-slate-900">{user.name}</p>
                         <p className="text-xs text-slate-400 truncate">{user.email}</p>
                       </div>
-                      <button onClick={() => handleNavClick('dashboard')} className="w-full flex items-center space-x-3 px-5 py-3 text-slate-600 hover:bg-slate-50 hover:text-blue-600 font-bold text-sm transition-colors text-left">
+                      <Link href="/dashboard" className="w-full flex items-center space-x-3 px-5 py-3 text-slate-600 hover:bg-slate-50 hover:text-blue-600 font-bold text-sm transition-colors text-left">
                         <LayoutDashboard className="w-4 h-4" /> <span>My Dashboard</span>
-                      </button>
+                      </Link>
                       {user.role === 'admin' && (
-                        <button onClick={() => handleNavClick('admin')} className="w-full flex items-center space-x-3 px-5 py-3 text-purple-600 hover:bg-purple-50 font-bold text-sm transition-colors text-left">
+                        <Link href="/admin" className="w-full flex items-center space-x-3 px-5 py-3 text-purple-600 hover:bg-purple-50 font-bold text-sm transition-colors text-left">
                           <BarChart className="w-4 h-4" /> <span>Admin Console</span>
-                        </button>
+                        </Link>
                       )}
                       <button onClick={handleLogout} className="w-full flex items-center space-x-3 px-5 py-3 text-red-500 hover:bg-red-50 font-bold text-sm transition-colors text-left">
                         <LogOut className="w-4 h-4" /> <span>Logout</span>
@@ -115,51 +103,17 @@ const Navbar: React.FC<NavbarProps> = ({ onNavigate, currentPage: propCurrentPag
             </div>
           ) : (
             <div className="flex items-center space-x-4">
-              <button onClick={() => handleNavClick('login')} className="text-slate-600 hover:text-blue-600 font-bold text-sm px-4">Login</button>
-              <button 
-                onClick={() => handleNavClick('signup')} 
+              <Link href="/auth?mode=login" className="text-slate-600 hover:text-blue-600 font-bold text-sm px-4">Login</Link>
+              <Link 
+                href="/auth?mode=signup" 
                 className="bg-animate-gradient text-white px-7 py-3 rounded-xl text-sm font-black uppercase tracking-wider transition-all shadow-lg active:scale-95 hover:opacity-90"
               >
                 Get Started
-              </button>
+              </Link>
             </div>
           )}
-        </div>
-
-        <div className="md:hidden">
-          <button onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)} className="p-2 text-slate-600">
-            {isMobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
-          </button>
         </div>
       </div>
-
-      {isMobileMenuOpen && (
-        <div className="absolute top-full left-0 w-full bg-white border-b border-slate-100 p-6 space-y-3 lg:hidden shadow-2xl animate-in slide-in-from-top-4 duration-300">
-          {navItems.map((item) => (
-            <button
-              key={item.id}
-              onClick={() => handleNavClick(item.id)}
-              className={`w-full flex items-center space-x-4 px-4 py-4 rounded-2xl ${
-                currentPage === item.id ? 'bg-blue-50 text-blue-600 font-bold' : 'text-slate-600 font-semibold hover:bg-slate-50'
-              }`}
-            >
-              <item.icon className="w-5 h-5" />
-              <span className="text-lg">{item.label}</span>
-            </button>
-          ))}
-          {!user && (
-            <div className="pt-6 border-t border-slate-50 space-y-3">
-              <button onClick={() => handleNavClick('login')} className="w-full py-4 text-center font-bold text-slate-600 rounded-2xl bg-slate-50">Login</button>
-              <button 
-                onClick={() => handleNavClick('signup')} 
-                className="w-full py-4 text-center bg-animate-gradient text-white rounded-2xl font-black uppercase tracking-widest text-sm shadow-xl"
-              >
-                Create Account
-              </button>
-            </div>
-          )}
-        </div>
-      )}
     </nav>
   );
 };

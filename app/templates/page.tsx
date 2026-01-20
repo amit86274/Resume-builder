@@ -8,7 +8,8 @@ export default function TemplatesPage() {
   const { push } = useRouter();
   
   const handleSelect = (id: string) => {
-    push(`/builder?template=${id}`);
+    // Navigate to options (Upload vs Scratch) first
+    push(`/resume-option?template=${id}`);
   };
 
   return <TemplatesGallery onSelect={handleSelect} onNavigate={(path) => push(path)} />;

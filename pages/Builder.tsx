@@ -17,7 +17,8 @@ import {
   getResponsibilitiesSuggestions, 
   getSkillSuggestions, 
   generateSummarySuggestions,
-  improveSummary 
+  improveSummary,
+  finalizeAndPolishResume
 } from '../services/gemini';
 import { MockAPI } from '../services/api';
 
@@ -44,9 +45,9 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const { push } = useRouter();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const resumeRef = useRef<HTMLDivElement>(null);
   
   const [data, setData] = useState<ResumeData>(() => {
-    // Try to restore draft if available
     const savedDraft = localStorage.getItem('resumaster_current_draft');
     if (savedDraft && !prefilledData) {
       try {
@@ -112,6 +113,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const [isSkillsLoading, setIsSkillsLoading] = useState(false);
   const [manualSkill, setManualSkill] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isExporting, setIsExporting] = useState(false);
 
   const steps = [
     { id: 'heading', title: 'Heading', number: 1 },
@@ -127,7 +129,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   ];
 
   useEffect(() => {
-    // Auto-save draft
     localStorage.setItem('resumaster_current_draft', JSON.stringify(data));
 
     let score = 0;
@@ -195,10 +196,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const handleImproveSummary = async () => {
     if (!data.personalInfo.summary) return;
     setIsSummaryLoading(true);
-    
-    // Save current summary to history before AI modification
     setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
-    
     const title = data.personalInfo.location || data.experience[0]?.position || 'Professional';
     const skillsList = data.skills.map(s => s.name);
     try {
@@ -215,7 +213,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   };
 
   const handleSelectSummarySuggestion = (suggestion: string) => {
-    // Save current summary to history before applying suggestion
     if (data.personalInfo.summary) {
       setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
     }
@@ -332,13 +329,79 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     return 'Novice';
   };
 
-  const handleDownloadPdf = () => {
-    window.print();
+  const handleDownloadPdf = async () => {
+    if (isExporting) return;
+    setIsExporting(true);
+    
+    // Smooth transition: ensure top of the element is visible
+    window.scrollTo(0, 0);
+
+    try {
+      // 1. AI Polish Pass for final professionalism
+      const polishedData = await finalizeAndPolishResume(data);
+      setData(polishedData);
+      
+      // Allow time for state update to reflect in DOM
+      await new Promise(r => setTimeout(r, 1000));
+
+      // 2. Setup export target
+      const element = resumeRef.current;
+      if (!element) throw new Error("Printable resume content not found.");
+      
+      const fileName = `${data.personalInfo.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
+      
+      // Configuration strictly tuned for Multi-page A4
+      const opt = {
+        margin: 0,
+        filename: fileName,
+        image: { type: 'jpeg', quality: 1.0 },
+        // Use 'css' mode for multi-page support based on our pageBreakInside styles
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        html2canvas: { 
+          scale: 2, 
+          useCORS: true, 
+          letterRendering: true,
+          logging: false,
+          scrollY: 0,
+          scrollX: 0,
+          // Do not set fixed height here so it captures the full dynamic length
+          onclone: (clonedDoc: Document) => {
+            const body = clonedDoc.body;
+            body.style.margin = '0';
+            body.style.padding = '0';
+            
+            const resumeInClone = clonedDoc.querySelector('[data-resume-target]') as HTMLElement;
+            if (resumeInClone) {
+              // Complete removal of visual decorators that trigger canvas issues
+              resumeInClone.style.transform = 'none';
+              resumeInClone.style.transition = 'none';
+              resumeInClone.style.boxShadow = 'none';
+              resumeInClone.style.borderRadius = '0';
+              resumeInClone.style.border = 'none';
+              resumeInClone.style.margin = '0';
+              resumeInClone.style.padding = '0';
+              resumeInClone.style.position = 'static';
+              resumeInClone.style.overflow = 'visible';
+              resumeInClone.style.left = '0';
+              resumeInClone.style.top = '0';
+            }
+          }
+        },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+      };
+      
+      // @ts-ignore - html2pdf loaded via CDN
+      await window.html2pdf().set(opt).from(element).save();
+    } catch (err) {
+      console.error("Advanced PDF Export failed:", err);
+      window.print(); // Final fallback
+    } finally {
+      setIsExporting(false);
+    }
   };
 
   const handleSaveToDashboard = async () => {
     if (!user) {
-      // Save current progress to a separate "pending" key for retrieval after auth
       localStorage.setItem('resumaster_pending_save', JSON.stringify(data));
       push('/signup?redirect=dashboard');
       return;
@@ -351,7 +414,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         title: data.personalInfo.fullName ? `${data.personalInfo.fullName}'s Resume` : 'My Resume',
         lastEdited: new Date().toISOString()
       });
-      // Clear draft once saved to cloud
       localStorage.removeItem('resumaster_current_draft');
       push('/dashboard');
     } catch (err) {
@@ -361,7 +423,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     }
   };
 
-  // Rendering logic...
   const renderHeadingStep = () => (
     <div className="max-w-3xl w-full mx-auto animate-in fade-in duration-500">
       <div className="mb-10">
@@ -369,7 +430,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
           <ChevronLeft className="w-4 h-4 mr-1" /> Go Back
         </button>
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">How can employers contact you?</h2>
-        <p className="text-gray-500 font-medium">We suggest including an email and phone number.</p>
       </div>
 
       <div className="flex flex-col md:flex-row gap-10 mb-12">
@@ -450,7 +510,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       <div className="mb-10">
         <button onClick={() => setActiveStep(0)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Tell us about your most recent job</h2>
-        <p className="text-gray-500 font-medium text-lg">We’ll start there and work backward.</p>
       </div>
       <div className="space-y-12">
         {data.experience.map((exp) => (
@@ -571,61 +630,32 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       <div className="mb-10">
         <button onClick={() => setActiveStep(3)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Write a powerful summary</h2>
-        <p className="text-gray-500 font-medium text-lg">Briefly describe your career and key achievements.</p>
       </div>
-      
       <div className="space-y-12">
-        {/* Main Editor */}
         <div className="w-full space-y-6">
           <div className="bg-white p-2 rounded-[3.5rem] shadow-2xl border border-slate-100">
             <div className="flex justify-between items-center p-8 border-b border-slate-50">
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center"><Type className="w-4 h-4 mr-2" /> Content Editor</h3>
                <div className="flex items-center space-x-3">
-                 <button 
-                  onClick={handleUndoSummary} 
-                  disabled={summaryHistory.length === 0} 
-                  className={`flex items-center space-x-2 px-6 py-3 border-2 border-slate-100 rounded-full font-black text-[10px] uppercase tracking-widest transition-all
-                    ${summaryHistory.length > 0 
-                      ? 'bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200' 
-                      : 'bg-slate-50 text-slate-300 cursor-not-allowed border-transparent'
-                    }`}
-                  title="Undo last change"
-                 >
-                    <RotateCcw className="w-3.5 h-3.5" /> <span>Undo</span>
-                 </button>
-                 <button 
-                  onClick={handleImproveSummary} 
-                  disabled={!data.personalInfo.summary || isSummaryLoading} 
-                  className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20"
-                 >
-                    {isSummaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} <span>AI Improve</span>
-                 </button>
+                 <button onClick={handleUndoSummary} disabled={summaryHistory.length === 0} className={`flex items-center space-x-2 px-6 py-3 border-2 border-slate-100 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${summaryHistory.length > 0 ? 'bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200' : 'bg-slate-50 text-slate-300 cursor-not-allowed border-transparent'}`} title="Undo last change"><RotateCcw className="w-3.5 h-3.5" /> <span>Undo</span></button>
+                 <button onClick={handleImproveSummary} disabled={!data.personalInfo.summary || isSummaryLoading} className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20">{isSummaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} <span>AI Improve</span></button>
                </div>
             </div>
             <textarea className="w-full h-80 p-10 text-lg font-medium leading-relaxed bg-white outline-none resize-none placeholder:text-slate-200 text-black" placeholder="Describe your professional journey..." value={data.personalInfo.summary} onChange={(e) => handlePersonalInfoUpdate('summary', e.target.value)} />
           </div>
         </div>
-
-        {/* AI Suggestions Block */}
         <div className="w-full bg-slate-50 p-10 rounded-[3.5rem] border border-slate-100 space-y-8">
           <div className="flex items-center justify-between">
             <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-400">AI Personalization Suggestions</h3>
             {isSummaryLoading && <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />}
           </div>
-          
           <div className="flex flex-col space-y-6">
             {summarySuggestions.length > 0 ? summarySuggestions.map((suggestion, i) => (
               <div key={i} onClick={() => handleSelectSummarySuggestion(suggestion)} className="p-8 rounded-[2.5rem] bg-white border border-slate-100 hover:border-blue-600 hover:shadow-xl hover:-translate-y-1 transition-all cursor-pointer group flex flex-col h-full">
                 <p className="text-sm font-medium text-slate-600 leading-relaxed mb-6">{suggestion}</p>
-                <div className="flex items-center text-[10px] font-black text-blue-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                  <CheckCircle2 className="w-3 h-3 mr-2" /> Use this Suggestion
-                </div>
+                <div className="flex items-center text-[10px] font-black text-blue-600 uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity"><CheckCircle2 className="w-3 h-3 mr-2" /> Use this Suggestion</div>
               </div>
-            )) : !isSummaryLoading && (
-              <div className="py-10 text-center text-slate-400 font-bold italic">
-                No suggestions found. Try adding more skills or experience details.
-              </div>
-            )}
+            )) : !isSummaryLoading && <div className="py-10 text-center text-slate-400 font-bold italic">No suggestions found. Try adding more skills or experience details.</div>}
           </div>
         </div>
       </div>
@@ -637,53 +667,30 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
       <div className="mb-10">
         <button onClick={() => setActiveStep(4)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Showcase your projects</h2>
-        <p className="text-gray-500 font-medium text-lg">Highlight your technical builds and side projects.</p>
       </div>
-
       <div className="space-y-12">
         <div className="p-10 bg-white rounded-[2.5rem] shadow-xl border border-slate-100 space-y-8">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <Input label="Project Name" value={projectForm.name} onChange={(v: string) => setProjectForm(p => ({...p, name: v}))} placeholder="e.g. ResuMaster AI Platform" />
-            <Input label="Link" value={projectForm.link} onChange={(v: string) => setProjectForm(p => ({...p, link: v}))} placeholder="github.com/user/project-repo" />
+            <Input label="Link" value={projectForm.link} onChange={(v: string) => setProjectForm(p => ({...p, link: v}))} placeholder="github.com/user/project" />
             <div className="md:col-span-2 space-y-2">
-              <label className="text-[11px] font-black text-[#1a2b48] uppercase tracking-wider block">Project Description</label>
-              <textarea 
-                className="w-full border border-slate-100 rounded-2xl p-6 h-32 text-sm font-medium focus:border-blue-500 outline-none bg-slate-50/50 transition-all placeholder:text-slate-300 text-black" 
-                placeholder="Highlight your key contributions, technologies used, and project impact..." 
-                value={projectForm.description} 
-                onChange={(e) => setProjectForm(p => ({...p, description: e.target.value}))} 
-              />
+              <label className="text-[11px] font-black text-[#1a2b48] uppercase tracking-wider block">Description</label>
+              <textarea className="w-full border border-slate-100 rounded-2xl p-6 h-32 text-sm font-medium focus:border-blue-500 outline-none bg-slate-50/50 transition-all text-black" placeholder="Highlight impact..." value={projectForm.description} onChange={(e) => setProjectForm(p => ({...p, description: e.target.value}))} />
             </div>
           </div>
-          <button 
-            onClick={() => { if(projectForm.name) { setData(p => ({...p, projects: [...p.projects, { ...projectForm, id: Date.now().toString() } as Project]})); setProjectForm({ name: '', link: '', description: '' }); } }} 
-            className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95"
-          >
-            Add Project to List
-          </button>
+          <button onClick={() => { if(projectForm.name) { setData(p => ({...p, projects: [...p.projects, { ...projectForm, id: Date.now().toString() } as Project]})); setProjectForm({ name: '', link: '', description: '' }); } }} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black text-xs uppercase tracking-widest hover:bg-blue-600 transition-all shadow-lg active:scale-95">Add Project</button>
         </div>
-
         <div className="space-y-4">
-          <h3 className="text-sm font-black text-slate-900 uppercase tracking-widest px-2">Projects Added:</h3>
-          {data.projects.length > 0 ? (
-            data.projects.map((project) => (
-              <div key={project.id} className="p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] flex justify-between items-start group shadow-sm hover:shadow-md transition-all">
-                <div className="space-y-3">
-                  <div className="flex items-center space-x-3">
-                    <Rocket className="w-4 h-4 text-orange-500" />
-                    <h5 className="text-lg font-black text-slate-900">{project.name}</h5>
-                  </div>
-                  {project.link && <p className="text-xs text-blue-600 font-bold underline">{project.link}</p>}
-                  <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">{project.description}</p>
-                </div>
-                <button onClick={() => setData(p => ({...p, projects: p.projects.filter(proj => proj.id !== project.id)}))} className="p-3 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-2xl transition-all"><Trash2 className="w-5 h-5" /></button>
+          {data.projects.map((project) => (
+            <div key={project.id} className="p-8 bg-slate-50 border border-slate-100 rounded-[2.5rem] flex justify-between items-start group shadow-sm">
+              <div className="space-y-3">
+                <div className="flex items-center space-x-3"><Rocket className="w-4 h-4 text-orange-500" /><h5 className="text-lg font-black text-slate-900">{project.name}</h5></div>
+                {project.link && <p className="text-xs text-blue-600 font-bold underline">{project.link}</p>}
+                <p className="text-sm text-slate-600 leading-relaxed max-w-2xl">{project.description}</p>
               </div>
-            ))
-          ) : (
-            <div className="py-20 border-2 border-dashed border-slate-200 rounded-[2.5rem] text-center">
-              <p className="text-slate-400 font-bold">No projects added yet.</p>
+              <button onClick={() => setData(p => ({...p, projects: p.projects.filter(proj => proj.id !== project.id)}))} className="p-3 text-slate-300 hover:text-red-500 rounded-2xl transition-all"><Trash2 className="w-5 h-5" /></button>
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>
@@ -696,17 +703,10 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">What languages do you speak?</h2>
       </div>
       <form onSubmit={(e) => { e.preventDefault(); if(manualLang.trim()) { setData(p => ({...p, languages: [...p.languages, manualLang.trim()]})); setManualLang(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. Hindi (Native), English (Fluent)" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualLang} onChange={(e) => setManualLang(e.target.value)} />
+        <input type="text" placeholder="e.g. Hindi, English" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualLang} onChange={(e) => setManualLang(e.target.value)} />
         <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
       </form>
-      <div className="flex flex-wrap gap-4">
-        {data.languages.map((lang, idx) => (
-          <div key={idx} className="flex items-center space-x-3 px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm group">
-            <span className="text-sm font-black text-slate-700">{lang}</span>
-            <button onClick={() => setData(p => ({...p, languages: p.languages.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><X className="w-4 h-4" /></button>
-          </div>
-        ))}
-      </div>
+      <div className="flex flex-wrap gap-4">{data.languages.map((lang, idx) => (<div key={idx} className="flex items-center space-x-3 px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm"><span className="text-sm font-black text-slate-700">{lang}</span><button onClick={() => setData(p => ({...p, languages: p.languages.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><X className="w-4 h-4" /></button></div>))}</div>
     </div>
   );
 
@@ -716,85 +716,51 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <button onClick={() => setActiveStep(6)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
         <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Any certifications?</h2>
       </div>
-      <form onSubmit={(e) => { e.preventDefault(); if(manualCert.trim()) { setData(p => ({...p, certifications: [...p.certifications, manualCert.trim()]})); setManualCert(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. AWS Certified Solutions Architect" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualCert} onChange={(e) => setManualCert(e.target.value)} />
-        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
-      </form>
-      <div className="space-y-3">
-        {data.certifications.map((cert, idx) => (
-          <div key={idx} className="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-2xl shadow-sm group hover:border-indigo-200 transition-all">
-            <span className="text-sm font-black text-slate-700">{cert}</span>
-            <button onClick={() => setData(p => ({...p, certifications: p.certifications.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button>
-          </div>
-        ))}
-      </div>
+      <form onSubmit={(e) => { e.preventDefault(); if(manualCert.trim()) { setData(p => ({...p, certifications: [...p.certifications, manualCert.trim()]})); setManualCert(''); } }} className="relative mb-12"><input type="text" placeholder="e.g. AWS" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualCert} onChange={(e) => setManualCert(e.target.value)} /><button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button></form>
+      <div className="space-y-3">{data.certifications.map((cert, idx) => (<div key={idx} className="flex justify-between items-center p-5 bg-white border border-slate-100 rounded-2xl shadow-sm"><span className="text-sm font-black text-slate-700">{cert}</span><button onClick={() => setData(p => ({...p, certifications: p.certifications.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><Trash2 className="w-4 h-4" /></button></div>))}</div>
     </div>
   );
 
   const renderHobbiesStep = () => (
     <div className="max-w-3xl w-full mx-auto animate-in fade-in duration-500 pb-20">
-      <div className="mb-10">
-        <button onClick={() => setActiveStep(7)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
-        <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">What are your hobbies?</h2>
-      </div>
-      <form onSubmit={(e) => { e.preventDefault(); if(manualHobby.trim()) { setData(p => ({...p, hobbies: [...p.hobbies, manualHobby.trim()]})); setManualHobby(''); } }} className="relative mb-12">
-        <input type="text" placeholder="e.g. Photography, Reading, Travel" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualHobby} onChange={(e) => setManualHobby(e.target.value)} />
-        <button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button>
-      </form>
-      <div className="flex flex-wrap gap-4">
-        {data.hobbies.map((hobby, idx) => (
-          <div key={idx} className="flex items-center space-x-3 px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm group transition-all hover:border-pink-200">
-            <span className="text-sm font-black text-slate-700">{hobby}</span>
-            <button onClick={() => setData(p => ({...p, hobbies: p.hobbies.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><X className="w-4 h-4" /></button>
-          </div>
-        ))}
-      </div>
+      <div className="mb-10"><button onClick={() => setActiveStep(7)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button><h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">What are your hobbies?</h2></div>
+      <form onSubmit={(e) => { e.preventDefault(); if(manualHobby.trim()) { setData(p => ({...p, hobbies: [...p.hobbies, manualHobby.trim()]})); setManualHobby(''); } }} className="relative mb-12"><input type="text" placeholder="e.g. Reading" className="w-full border border-slate-100 rounded-[2rem] pl-8 pr-20 py-6 text-base font-medium focus:border-blue-500 outline-none bg-slate-50 text-black" value={manualHobby} onChange={(e) => setManualHobby(e.target.value)} /><button type="submit" className="absolute right-3 top-1/2 -translate-y-1/2 p-3.5 bg-slate-900 text-white rounded-2xl shadow-lg"><Plus className="w-5 h-5" /></button></form>
+      <div className="flex flex-wrap gap-4">{data.hobbies.map((hobby, idx) => (<div key={idx} className="flex items-center space-x-3 px-6 py-4 bg-white border border-slate-100 rounded-2xl shadow-sm"><span className="text-sm font-black text-slate-700">{hobby}</span><button onClick={() => setData(p => ({...p, hobbies: p.hobbies.filter((_, i) => i !== idx)}))} className="text-slate-300 hover:text-red-500"><X className="w-4 h-4" /></button></div>))}</div>
     </div>
   );
 
   const renderFinalizeStep = () => (
     <div className="max-w-7xl w-full mx-auto animate-in fade-in duration-500 pb-32">
       <div className="flex flex-col items-center mb-16 no-print">
-        <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-8 shadow-xl shadow-green-100 animate-bounce">
-          <CheckCircle2 className="w-10 h-10" />
-        </div>
+        <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mb-8 shadow-xl shadow-green-100 animate-bounce"><CheckCircle2 className="w-10 h-10" /></div>
         <h2 className="text-5xl font-black text-slate-900 tracking-tight text-center mb-4 uppercase">Your Resume is Ready!</h2>
-        <p className="text-slate-500 text-xl font-medium text-center max-w-xl leading-relaxed mb-12">
-          Review your masterpiece below. We've optimized the layout for high-performance job applications.
-        </p>
+        <p className="text-slate-500 text-xl font-medium text-center max-w-xl leading-relaxed mb-12">Review your masterpiece below.</p>
       </div>
-
-      {/* BIG CENTERED PREVIEW */}
+      
+      {/* FINAL EXPORT PREVIEW */}
       <div className="relative flex justify-center w-full px-4 mb-20">
-         <div className="print-container bg-white shadow-[0_50px_100px_rgba(0,0,0,0.15)] rounded-sm border border-slate-100 overflow-hidden transform-gpu hover:scale-[1.01] transition-transform duration-500">
+         <div 
+          ref={resumeRef}
+          data-resume-target="true"
+          className="bg-white rounded-sm border border-slate-50"
+          style={{ width: '210mm', minHeight: '297mm', position: 'relative', boxShadow: isExporting ? 'none' : '0 50px 100px rgba(0,0,0,0.15)' }}
+         >
             <MasterTemplateSelector data={data} />
          </div>
       </div>
 
-      {/* ACTIONS MOVED UNDER RESUME */}
       <div className="flex flex-col items-center no-print">
         <div className="flex flex-col sm:flex-row items-center gap-6 w-full max-w-3xl justify-center">
-           <button onClick={handleDownloadPdf} className="flex-1 flex items-center justify-center space-x-4 p-8 bg-blue-600 text-white rounded-[2.5rem] shadow-2xl hover:bg-blue-700 transition-all group w-full transform hover:-translate-y-1">
-              <Download className="w-7 h-7 group-hover:-translate-y-1 transition-transform" />
-              <div className="text-left">
-                <span className="block text-xs font-black uppercase tracking-widest opacity-80">Export Document</span>
-                <span className="text-lg font-black tracking-tight">Download as PDF</span>
-              </div>
+           <button onClick={handleDownloadPdf} disabled={isExporting} className={`flex-1 flex items-center justify-center space-x-4 p-8 bg-blue-600 text-white rounded-[2.5rem] shadow-2xl transition-all group w-full transform hover:-translate-y-1 ${isExporting ? 'opacity-70 cursor-not-allowed grayscale' : 'hover:bg-blue-700'}`}>
+              {isExporting ? <Loader2 className="w-7 h-7 animate-spin" /> : <Download className="w-7 h-7" />}
+              <div className="text-left"><span className="block text-xs font-black uppercase tracking-widest opacity-80">{isExporting ? 'AI Final Polish...' : 'Export Document'}</span><span className="text-lg font-black tracking-tight">{isExporting ? 'Generating PDF...' : 'Download as PDF'}</span></div>
            </button>
-           <button onClick={handleSaveToDashboard} disabled={isSaving} className="flex-1 flex items-center justify-center space-x-4 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl hover:bg-slate-800 transition-all group w-full disabled:opacity-50 transform hover:-translate-y-1">
-              {isSaving ? <Loader2 className="w-7 h-7 animate-spin" /> : <CloudUpload className="w-7 h-7 group-hover:scale-110 transition-transform" />}
-              <div className="text-left">
-                <span className="block text-xs font-black uppercase tracking-widest opacity-80">Cloud Sync</span>
-                <span className="text-lg font-black tracking-tight">{user ? 'Save to Dashboard' : 'Sign up & Save'}</span>
-              </div>
+           <button onClick={handleSaveToDashboard} disabled={isSaving} className="flex-1 flex items-center justify-center space-x-4 p-8 bg-slate-900 text-white rounded-[2.5rem] shadow-2xl hover:bg-slate-800 transition-all group w-full transform hover:-translate-y-1">
+              {isSaving ? <Loader2 className="w-7 h-7 animate-spin" /> : <CloudUpload className="w-7 h-7" />}
+              <div className="text-left"><span className="block text-xs font-black uppercase tracking-widest opacity-80">Cloud Sync</span><span className="text-lg font-black tracking-tight">{user ? 'Save to Dashboard' : 'Sign up & Save'}</span></div>
            </button>
         </div>
-        
-        <div className="mt-12 flex items-center space-x-4 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]">
-           <span className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> ATS Compatibility: 98%</span>
-           <span className="w-1.5 h-1.5 bg-slate-200 rounded-full" />
-           <span className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Print-Ready Format</span>
-        </div>
+        <div className="mt-12 flex items-center space-x-4 text-slate-400 font-bold text-[10px] uppercase tracking-[0.2em]"><span className="flex items-center"><BadgeCheck className="w-4 h-4 mr-2 text-blue-500" /> AI-Enhanced Precision</span><span className="w-1.5 h-1.5 bg-slate-200 rounded-full" /><span className="flex items-center"><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> ATS Compatible</span></div>
       </div>
     </div>
   );
@@ -805,16 +771,11 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     <div className="min-h-screen bg-white flex flex-col md:flex-row font-inter overflow-hidden">
       <div className="w-full md:w-64 bg-gradient-to-b from-blue-600 to-indigo-950 text-white flex flex-col shrink-0 no-print shadow-2xl z-10">
         <div className="p-8">
-          <button onClick={() => push('/')} className="flex items-center space-x-2 group mb-12">
-            <Sparkles className="w-8 h-8 text-white" />
-            <span className="text-2xl font-black tracking-tighter">resu</span>
-          </button>
+          <button onClick={() => push('/')} className="flex items-center space-x-2 group mb-12"><Sparkles className="w-8 h-8 text-white" /><span className="text-2xl font-black tracking-tighter">resu</span></button>
           <div className="space-y-1">
             {steps.map((step, idx) => (
               <button key={step.id} onClick={() => setActiveStep(idx)} className={`w-full flex items-center p-3 rounded-xl transition-all duration-300 ${activeStep === idx ? 'bg-white/20 text-white shadow-lg' : 'text-white/60 hover:text-white hover:bg-white/10'}`}>
-                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-black mr-4 transition-colors ${activeStep === idx ? 'border-white bg-white text-blue-700' : 'border-white/20 text-white/40'}`}>
-                  {step.number}
-                </div>
+                <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center text-[10px] font-black mr-4 transition-colors ${activeStep === idx ? 'border-white bg-white text-blue-700' : 'border-white/20 text-white/40'}`}>{step.number}</div>
                 <span className={`text-xs font-bold uppercase tracking-wider whitespace-nowrap ${activeStep === idx ? 'opacity-100' : 'opacity-60'}`}>{step.title}</span>
               </button>
             ))}
@@ -822,17 +783,11 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         </div>
         <div className="mt-auto p-8 space-y-6">
           <div className="space-y-3">
-            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/80">
-              <span>Completeness:</span>
-              <span>{completeness}%</span>
-            </div>
-            <div className="w-full bg-black/20 h-2 rounded-full overflow-hidden border border-white/10">
-              <div className="bg-white h-full transition-all duration-1000 ease-out shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ width: `${completeness}%` }} />
-            </div>
+            <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-white/80"><span>Completeness:</span><span>{completeness}%</span></div>
+            <div className="w-full bg-black/20 h-2 rounded-full overflow-hidden border border-white/10"><div className="bg-white h-full transition-all duration-1000 shadow-[0_0_10px_rgba(255,255,255,0.5)]" style={{ width: `${completeness}%` }} /></div>
           </div>
         </div>
       </div>
-
       <div className="flex-1 flex flex-col min-w-0 bg-white relative">
         <div className="flex-1 overflow-y-auto px-6 md:px-12 py-12 scrollbar-hide">
           {activeStep === 0 && renderHeadingStep()}
@@ -850,28 +805,19 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
           <div className="h-28 border-t border-gray-100 flex items-center justify-center md:justify-end px-12 bg-white sticky bottom-0 z-50 shadow-sm no-print">
             <div className="flex space-x-4">
               <button onClick={() => setActiveStep(9)} className="px-12 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-black uppercase text-xs tracking-widest hover:bg-gray-50 transition-all active:scale-95">Finish Early</button>
-              <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap ${activeStep === 8 ? 'bg-green-600 text-white shadow-green-500/20' : 'bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90'}`}>
-                {activeStep === 8 ? 'Finalize' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" />
-              </button>
+              <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90`}>{activeStep === 8 ? 'Finalize' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" /></button>
             </div>
           </div>
         )}
       </div>
-
-      {/* Hide right sidebar on finalize screen */}
       {!isFinalizeStep && (
         <div className="hidden lg:flex w-[400px] bg-slate-50 border-l border-gray-100 p-10 flex-col items-center shrink-0 no-print">
-          <div className="w-full shadow-2xl bg-white rounded-sm overflow-hidden transform hover:scale-[1.03] transition-transform duration-700 cursor-zoom-in border border-slate-200 aspect-[210/297] relative group">
-             <div className="absolute top-0 left-1/2 -translate-x-1/2 origin-top scale-[0.38] w-[210mm] h-[297mm] transition-transform duration-500">
-                <MasterTemplateSelector data={data} />
-             </div>
+          <div className="w-full shadow-2xl bg-white rounded-sm overflow-hidden transform-gpu hover:scale-[1.03] transition-transform duration-700 border border-slate-200 aspect-[210/297] relative group">
+             <div className="absolute top-0 left-1/2 -translate-x-1/2 origin-top scale-[0.38] w-[210mm] min-h-[297mm] transition-transform duration-500"><MasterTemplateSelector data={data} /></div>
              <div className="absolute inset-0 bg-transparent z-10" />
           </div>
           <div className="mt-10 space-y-6 text-center">
-            <div className="flex items-center justify-center space-x-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest">
-               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-               <span>Auto-saving draft...</span>
-            </div>
+            <div className="flex items-center justify-center space-x-2 text-slate-400 font-bold text-[10px] uppercase tracking-widest"><div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" /><span>Auto-saving draft...</span></div>
             <button onClick={() => push('/templates')} className="text-blue-600 font-black uppercase text-[10px] tracking-widest hover:text-indigo-700 transition-colors flex items-center mx-auto border-b-2 border-transparent hover:border-blue-600 pb-1 whitespace-nowrap">Change template</button>
           </div>
         </div>

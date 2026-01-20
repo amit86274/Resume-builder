@@ -1,10 +1,26 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useMemo } from 'react';
+
+// Import "Next.js" page components
+import HomePage from '../app/page';
+import BuilderPage from '../app/builder/page';
+import DashboardPage from '../app/dashboard/page';
+import AdminPage from '../app/admin/page';
+import AuthPage from '../app/auth/page';
+import BlogPage from '../app/blog/page';
+import TemplatesPage from '../app/templates/page';
+import ContactPage from '../app/contact/page';
+import FAQPage from '../app/faq/page';
+import ResumeOptionPage from '../app/resume-option/page';
+import UploadMethodPage from '../app/upload-method/page';
+import DirectPortPage from '../app/direct-port/page';
 
 /**
- * Standard React Router Context
- * Provides navigation state and hooks without Next.js shims.
- * Includes resilience against SecurityError in sandboxed environments.
+ * Shared Session for non-serializable data (like Files) between routes
  */
+export const builderSession = {
+  pendingFile: null as File | null,
+  prefilledData: null as any | null,
+};
 
 interface RouterContextType {
   pathname: string;
@@ -31,16 +47,16 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   }, []);
 
   const updateStateFromPath = (path: string) => {
-    const [pathPart, queryPart] = path.split('?');
-    setPathname(pathPart);
-    setSearchParams(new URLSearchParams(queryPart || ''));
+    const url = new URL(path, window.location.origin);
+    setPathname(url.pathname);
+    setSearchParams(url.searchParams);
   };
 
   const push = (path: string) => {
     try {
       window.history.pushState({}, '', path);
     } catch (e) {
-      console.warn('[Router] pushState failed (SecurityError). Using state-only navigation.', e);
+      console.warn('[Router] pushState failed.', e);
     }
     updateStateFromPath(path);
     window.scrollTo(0, 0);
@@ -50,7 +66,7 @@ export const RouterProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     try {
       window.history.replaceState({}, '', path);
     } catch (e) {
-      console.warn('[Router] replaceState failed (SecurityError). Using state-only update.', e);
+      console.warn('[Router] replaceState failed.', e);
     }
     updateStateFromPath(path);
   };
@@ -88,6 +104,9 @@ export const useSearchParams = () => {
   return context.searchParams;
 };
 
+/**
+ * Next.js Link component equivalent
+ */
 interface LinkProps extends React.AnchorHTMLAttributes<HTMLAnchorElement> {
   href: string;
 }
@@ -96,7 +115,6 @@ export const Link: React.FC<LinkProps> = ({ href, children, ...props }) => {
   const { push } = useRouter();
 
   const handleClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
-    // Check for standard navigation (not ctrl+click etc)
     if (e.button === 0 && !e.ctrlKey && !e.metaKey && !e.shiftKey && !e.altKey) {
       e.preventDefault();
       push(href);
@@ -108,4 +126,34 @@ export const Link: React.FC<LinkProps> = ({ href, children, ...props }) => {
       {children}
     </a>
   );
+};
+
+/**
+ * Simulated Next.js Route Handler
+ * Determines which "app page" to render based on path
+ */
+export const RouteHandler: React.FC = () => {
+  const pathname = usePathname();
+  const normalizedPath = pathname.replace(/^\/+/, '').split('?')[0].replace(/\/$/, '') || 'landing';
+
+  return useMemo(() => {
+    // Map paths to Next.js-style page components
+    switch (normalizedPath) {
+      case 'landing': return <HomePage />;
+      case 'builder': return <BuilderPage />;
+      case 'dashboard': return <DashboardPage />;
+      case 'admin': return <AdminPage />;
+      case 'auth': return <AuthPage />;
+      case 'login': return <AuthPage />;
+      case 'signup': return <AuthPage />;
+      case 'blog': return <BlogPage />;
+      case 'templates': return <TemplatesPage />;
+      case 'contact': return <ContactPage />;
+      case 'faq': return <FAQPage />;
+      case 'resume-option': return <ResumeOptionPage />;
+      case 'upload-method': return <UploadMethodPage />;
+      case 'direct-port': return <DirectPortPage />;
+      default: return <HomePage />;
+    }
+  }, [normalizedPath]);
 };

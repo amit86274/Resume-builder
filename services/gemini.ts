@@ -1,4 +1,3 @@
-
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData } from "../types";
 
@@ -46,12 +45,10 @@ export const extractResumeData = async (fileData?: { data: string, mimeType: str
   };
 
   try {
-    // Using Flash for extraction because it is significantly faster and very accurate for JSON mapping
     const response = await ai.models.generateContent({
       model: FLASH_MODEL,
       contents,
       config: {
-        // Correctly balancing thinking and output tokens to prevent empty responses
         thinkingConfig: { thinkingBudget: 4000 },
         maxOutputTokens: 12000, 
         responseMimeType: "application/json",
@@ -62,7 +59,6 @@ export const extractResumeData = async (fileData?: { data: string, mimeType: str
     const cleaned = cleanJsonResponse(rawText);
     const parsed = JSON.parse(cleaned);
     
-    // Normalize nested structures to prevent builder crashes
     return {
       personalInfo: parsed.personalInfo || {},
       experience: (parsed.experience || []).map((exp: any) => ({
@@ -89,6 +85,30 @@ export const extractResumeData = async (fileData?: { data: string, mimeType: str
   }
 };
 
+export const finalizeAndPolishResume = async (data: ResumeData): Promise<ResumeData> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  const prompt = `FINAL POLISH: Review this resume data.
+  1. Fix minor grammatical errors or spelling mistakes.
+  2. Make experience bullet points more impactful using strong action verbs.
+  3. Ensure the summary is executive-level and professional.
+  4. Correct any formatting inconsistencies in the text.
+  
+  Return the exact same JSON structure but with polished text content.
+  DATA: ${JSON.stringify(data)}`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: FLASH_MODEL,
+      contents: prompt,
+      config: { responseMimeType: "application/json" }
+    });
+    const polished = JSON.parse(cleanJsonResponse(response.text || "{}"));
+    return { ...data, ...polished };
+  } catch (e) {
+    return data;
+  }
+};
+
 export const analyzeResumeATS = async (filename: string, fileData?: { data: string, mimeType: string }, textContent?: string): Promise<any> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   
@@ -109,12 +129,10 @@ export const analyzeResumeATS = async (filename: string, fileData?: { data: stri
     const cleaned = cleanJsonResponse(response.text || "{}");
     return JSON.parse(cleaned);
   } catch (e) {
-    // Permissive fallback
     return { isResume: true, score: 70 };
   }
 };
 
-// ... keep other services same or slightly simplified for brevity ...
 export const improveSummary = async (summary: string, jobTitle: string, skills: string[]): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({
@@ -136,15 +154,6 @@ export const generateSummarySuggestions = async (jobTitle: string, skills: strin
     }
   });
   try { return JSON.parse(cleanJsonResponse(response.text || "[]")); } catch { return []; }
-};
-
-export const rewriteExperience = async (text: string): Promise<string> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-  const response = await ai.models.generateContent({
-    model: FLASH_MODEL,
-    contents: `Rewrite to be impactful: "${text}"`
-  });
-  return response.text?.trim() || text;
 };
 
 export const getResponsibilitiesSuggestions = async (jobTitle: string): Promise<string[]> => {
