@@ -48,7 +48,7 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
     setError(null);
     if (!validateForm()) return;
 
-    setIsLoading('email');
+    setIsLoading('auth');
     try {
       if (mode === 'forgot') {
         await MockAPI.forgotPassword(formData.email);
@@ -57,10 +57,13 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
         const user = mode === 'signup' 
           ? await MockAPI.signup(formData.name, formData.email, formData.password)
           : await MockAPI.login(formData.email, formData.password);
+        
+        console.log('[Auth] Success:', user.email);
         onAuthSuccess(user);
       }
     } catch (err: any) {
-      setError(err.message || "Authentication failed. Please check your credentials.");
+      console.error('[Auth] Error:', err.message);
+      setError(err.message || "An unexpected error occurred. Please try again.");
     } finally {
       setIsLoading(null);
     }
@@ -104,7 +107,10 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
         <div className="p-10 md:p-20 flex flex-col justify-center bg-white relative">
           {isLoading && (
             <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+              <div className="flex flex-col items-center space-y-4">
+                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
+                <p className="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse">Authenticating...</p>
+              </div>
             </div>
           )}
 
@@ -160,7 +166,7 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
                     </div>
                   )}
 
-                  <button type="submit" className="w-full py-6 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] bg-slate-900 hover:bg-blue-600 shadow-2xl shadow-slate-900/10 active:scale-95 transition-all">
+                  <button type="submit" disabled={!!isLoading} className="w-full py-6 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] bg-slate-900 hover:bg-blue-600 shadow-2xl shadow-slate-900/10 active:scale-95 transition-all disabled:opacity-50">
                     {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'} <ArrowRight className="ml-2 w-4 h-4 inline" />
                   </button>
                 </form>
