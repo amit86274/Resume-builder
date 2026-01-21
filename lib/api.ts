@@ -51,7 +51,6 @@ export const MockAPI = {
     return { ...data.user, id: data.user._id || data.user.id };
   },
 
-  // Fix: Added forgotPassword to resolve error in Auth.tsx
   async forgotPassword(email: string): Promise<void> {
     const response = await fetch(`${API_BASE}/auth/forgot-password`, {
       method: 'POST',
@@ -74,7 +73,6 @@ export const MockAPI = {
     return await response.json() || [];
   },
 
-  // Fix: Added getPayments to resolve error in Dashboard.tsx
   async getPayments(userId: string): Promise<Payment[]> {
     const response = await fetch(`${API_BASE}/db/payments`, { headers: getHeaders() });
     const data = await response.json();
@@ -101,7 +99,6 @@ export const MockAPI = {
   }
 };
 
-// Fix: Exported AdminAPI to resolve error in AdminDashboard.tsx
 export const AdminAPI = {
   async getAllUsers(): Promise<User[]> {
     const response = await fetch(`${API_BASE}/db/users`, { headers: getHeaders() });

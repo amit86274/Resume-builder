@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
 
@@ -17,11 +18,17 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem('resuMaster_user');
-      if (savedUser) {
+      const token = localStorage.getItem('resumaster_token');
+      
+      // We only restore user if both data and token are present
+      if (savedUser && token) {
         setUserState(JSON.parse(savedUser));
+      } else {
+        localStorage.removeItem('resuMaster_user');
+        localStorage.removeItem('resumaster_token');
       }
     } catch (e) {
-      console.warn('[UserContext] Failed to load user from localStorage (SecurityError or invalid JSON).');
+      console.warn('[UserContext] Failed to load user session.');
     }
     setIsLoading(false);
   }, []);
@@ -33,9 +40,10 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
         localStorage.setItem('resuMaster_user', JSON.stringify(newUser));
       } else {
         localStorage.removeItem('resuMaster_user');
+        localStorage.removeItem('resumaster_token');
       }
     } catch (e) {
-      console.warn('[UserContext] Failed to save/remove user from localStorage (SecurityError).');
+      console.warn('[UserContext] Failed to sync user session.');
     }
   };
 

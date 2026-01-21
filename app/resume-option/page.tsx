@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import ResumeOption from '../../pages/ResumeOption';
-import { useRouter, useSearchParams } from '../../services/router';
+import { useRouter, useSearchParams } from '../../lib/router';
 
 export default function ResumeOptionPage() {
   const { push } = useRouter();

@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ChevronRight, ChevronLeft, Plus, Trash2, Sparkles, 
@@ -12,15 +13,15 @@ import {
 import { ResumeData, TemplateTier, Experience, Education, Skill, Project } from '../types';
 import { INITIAL_RESUME, TEMPLATES, MOCK_RESUME_DATA } from '../constants';
 import { MasterTemplateSelector } from '../components/ResumeTemplates';
-import { useRouter, useSearchParams } from '../services/router';
+import { useRouter, useSearchParams, builderSession } from '../lib/router';
 import { 
   getResponsibilitiesSuggestions, 
   getSkillSuggestions, 
   generateSummarySuggestions,
   improveSummary,
   finalizeAndPolishResume
-} from '../services/gemini';
-import { MockAPI } from '../services/api';
+} from '../lib/gemini';
+import { MockAPI } from '../lib/api';
 
 const MONTHS = ['Month', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const YEARS = ['Year', ...Array.from({ length: 60 }, (_, i) => (new Date().getFullYear() - i).toString())];

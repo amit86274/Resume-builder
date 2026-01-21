@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { useRouter } from '../services/router';
+import { useRouter } from '../lib/router';
 
 const Onboarding: React.FC = () => {
   const { push } = useRouter();

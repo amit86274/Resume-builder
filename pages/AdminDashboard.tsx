@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { 
   Users, IndianRupee, TrendingUp, ShieldCheck, 
@@ -5,8 +6,7 @@ import {
   Loader2, Lock, UserCheck, ShieldAlert, Database,
   Activity, HardDrive, Server, Globe, Cpu, Zap, Settings
 } from 'lucide-react';
-import { AdminAPI } from '../services/api';
-import { db } from '../services/mongodb';
+import { AdminAPI } from '../lib/api';
 
 const AdminDashboard: React.FC = () => {
   const [users, setUsers] = useState<any[]>([]);
@@ -190,18 +190,18 @@ const AdminDashboard: React.FC = () => {
                    <div className="space-y-4 pt-4 border-t border-white/5">
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-400">Engine</span>
-                        <span className="text-xs font-black text-indigo-400 uppercase">{db.engine}</span>
+                        <span className="text-xs font-black text-indigo-400 uppercase">Atlas Neural</span>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-400">Primary Region</span>
                         <div className="flex items-center space-x-2">
                            <Globe className="w-3 h-3 text-slate-500" />
-                           <span className="text-xs font-black text-white uppercase">{db.region}</span>
+                           <span className="text-xs font-black text-white uppercase">aws-ap-south-1</span>
                         </div>
                       </div>
                       <div className="flex justify-between items-center">
                         <span className="text-xs font-bold text-slate-400">Total Documents</span>
-                        <span className="text-xs font-black text-white">{stats?.dbStats.documentCount}</span>
+                        <span className="text-xs font-black text-white">{stats?.dbStats.documentCount || '---'}</span>
                       </div>
                    </div>
                 </div>

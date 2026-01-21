@@ -2,7 +2,7 @@
 'use client';
 
 import React, { useEffect } from 'react';
-import { useRouter } from '../../services/router';
+import { useRouter } from '../../lib/router';
 
 export default function AnalyzerPage() {
   const { push } = useRouter();

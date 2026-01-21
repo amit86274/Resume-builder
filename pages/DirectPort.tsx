@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect, useRef } from 'react';
 import { Sparkles, CheckCircle2, AlertCircle, XCircle, BrainCircuit, Cpu, Zap, Search, Fingerprint, Loader2 } from 'lucide-react';
-import { extractResumeData, analyzeResumeATS } from '../services/gemini';
+import { extractResumeData, analyzeResumeATS } from '../lib/gemini';
 import { ResumeData } from '../types';
 
 interface DirectPortProps {

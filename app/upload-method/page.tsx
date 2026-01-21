@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import UploadMethod from '../../pages/UploadMethod';
-import { useRouter, useSearchParams, builderSession } from '../../services/router';
+import { useRouter, useSearchParams, builderSession } from '../../lib/router';
 
 export default function UploadMethodPage() {
   const { push, back } = useRouter();

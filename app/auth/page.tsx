@@ -1,9 +1,10 @@
+
 'use client';
 
 import React from 'react';
 import Auth from '../../pages/Auth';
 import { useUser } from '../../context/UserContext';
-import { useRouter, useSearchParams } from '../../services/router';
+import { useRouter, useSearchParams } from '../../lib/router';
 
 export default function AuthPage() {
   const { setUser } = useUser();

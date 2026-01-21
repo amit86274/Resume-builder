@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import Landing from '../pages/Landing';
-import { useRouter } from '../services/router';
+import { useRouter } from '../lib/router';
 
 export default function HomePage() {
   const { push } = useRouter();

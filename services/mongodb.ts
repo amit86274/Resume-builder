@@ -1,38 +1,12 @@
+
+import { API_BASE } from './api';
+
 /**
- * MongoDB Real Data Service
- * Interfaces with the Node.js backend for secure Atlas access.
- * Includes robust fallbacks for sandboxed or restricted environments.
+ * MongoDB Client Service Proxy
+ * Communicates with server.js via API_BASE
  */
 
-const API_BASE = window.location.hostname === 'localhost' 
-  ? 'http://localhost:3001/api/db' 
-  : '/api/db';
-
-const memoryStorage: Record<string, string> = {};
-
-const safeStorage = {
-  getItem: (key: string): string | null => {
-    try {
-      return localStorage.getItem(key);
-    } catch (e) {
-      return memoryStorage[key] || null;
-    }
-  },
-  setItem: (key: string, value: string): void => {
-    try {
-      localStorage.setItem(key, value);
-    } catch (e) {
-      memoryStorage[key] = value;
-    }
-  },
-  removeItem: (key: string): void => {
-    try {
-      localStorage.removeItem(key);
-    } catch (e) {
-      delete memoryStorage[key];
-    }
-  }
-};
+const getAuthToken = () => localStorage.getItem('resumaster_token');
 
 export class Collection<T extends { _id?: string }> {
   private collectionName: string;
@@ -42,55 +16,36 @@ export class Collection<T extends { _id?: string }> {
   }
 
   private async apiRequest(method: string, body?: any) {
-    if (window.location.hostname === 'localhost') {
-      try {
-        const response = await fetch(`${API_BASE}/${this.collectionName}`, {
-          method: method === 'GET' ? 'GET' : (method === 'PUT' ? 'PUT' : (method === 'DELETE' ? 'DELETE' : 'POST')),
-          headers: { 'Content-Type': 'application/json' },
-          body: (method !== 'GET') ? JSON.stringify(body) : undefined
-        });
-
-        if (response.ok) {
-          return await response.json();
-        }
-      } catch (e) {
-        // Continue to fallback
-      }
+    const token = getAuthToken();
+    const headers: Record<string, string> = { 
+      'Content-Type': 'application/json' 
+    };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
-    return this.localStorageFallback(method, body);
-  }
 
-  private async localStorageFallback(method: string, body?: any) {
-    const key = `resumaster_v1_${this.collectionName}`;
-    let data: any[] = [];
+    const url = `${API_BASE}/db/${this.collectionName}`;
+
     try {
-      const stored = safeStorage.getItem(key);
-      data = JSON.parse(stored || '[]');
-    } catch (e) {
-      data = [];
-    }
-    
-    switch (method) {
-      case 'GET': return data;
-      case 'POST': 
-        const newDoc = { ...body, _id: `id_${Math.random().toString(36).substring(7)}` };
-        data.push(newDoc);
-        safeStorage.setItem(key, JSON.stringify(data));
-        return newDoc;
-      case 'PUT':
-        const index = data.findIndex((i: any) => (i._id === body._id || i.id === body._id));
-        if (index !== -1) data[index] = { ...data[index], ...body.update };
-        safeStorage.setItem(key, JSON.stringify(data));
-        return true;
-      case 'DELETE':
-        const filtered = data.filter((i: any) => (i._id !== body._id && i.id !== body._id));
-        safeStorage.setItem(key, JSON.stringify(filtered));
-        return true;
-      default: return null;
+      const response = await fetch(url, {
+        method: method,
+        headers,
+        body: (method !== 'GET') ? JSON.stringify(body) : undefined
+      });
+
+      if (response.ok) {
+        return await response.json();
+      } else {
+        const errData = await response.json();
+        throw new Error(errData.error || "Database error");
+      }
+    } catch (e: any) {
+      console.error(`[Collection API Error] ${method} ${this.collectionName}:`, e.message);
+      throw e;
     }
   }
 
-  async find(query: Partial<T> = {}): Promise<T[]> {
+  async find(): Promise<T[]> {
     return this.apiRequest('GET'); 
   }
 
@@ -101,32 +56,34 @@ export class Collection<T extends { _id?: string }> {
     ) || null;
   }
 
-  async insertOne(doc: Omit<T, '_id'>): Promise<T> {
+  async insertOne(doc: T): Promise<T> {
     return this.apiRequest('POST', doc);
   }
 
   async updateOne(query: Partial<T>, update: Partial<T>): Promise<boolean> {
     const existing = await this.findOne(query);
-    if (!existing) return false;
-    const id = (existing as any)._id || (existing as any).id;
-    return this.apiRequest('PUT', { _id: id, update });
+    if (!existing || !existing._id) return false;
+    
+    const result = await this.apiRequest('PUT', { 
+      _id: existing._id, 
+      update: { ...existing, ...update } 
+    });
+    return !!result.success;
   }
 
   async deleteOne(query: Partial<T>): Promise<boolean> {
     const existing = await this.findOne(query);
-    if (!existing) return false;
-    const id = (existing as any)._id || (existing as any).id;
-    return this.apiRequest('DELETE', { _id: id });
+    if (!existing || !existing._id) return false;
+    
+    const result = await this.apiRequest('DELETE', { _id: existing._id });
+    return !!result.success;
   }
 }
 
 export const db = {
-  uri: "mongodb+srv://keyframe:D3v3l0p3r%4074@cluster0.uzvsg.mongodb.net/",
-  database: "resumebuilder",
+  engine: "Atlas Neural Storage",
+  region: "aws-ap-south-1",
   users: new Collection<any>('users'),
   resumes: new Collection<any>('resumes'),
-  status: 'connected',
-  engine: 'Node.js + MongoDB Atlas',
-  region: 'ap-south-1 (Mumbai)',
-  latency: 'Live'
+  payments: new Collection<any>('payments')
 };

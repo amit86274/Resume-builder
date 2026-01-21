@@ -1,8 +1,9 @@
+
 'use client';
 
 import React from 'react';
 import Blog from '../../pages/Blog';
-import { useRouter } from '../../services/router';
+import { useRouter } from '../../lib/router';
 
 export default function BlogPage() {
   const { push } = useRouter();
