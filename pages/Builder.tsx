@@ -332,69 +332,43 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const handleDownloadPdf = async () => {
     if (isExporting) return;
     setIsExporting(true);
-    
-    // Smooth transition: ensure top of the element is visible
     window.scrollTo(0, 0);
 
     try {
-      // 1. AI Polish Pass for final professionalism
       const polishedData = await finalizeAndPolishResume(data);
       setData(polishedData);
       
-      // Allow time for state update to reflect in DOM
-      await new Promise(r => setTimeout(r, 1000));
+      await new Promise(r => setTimeout(r, 1200));
 
-      // 2. Setup export target
       const element = resumeRef.current;
       if (!element) throw new Error("Printable resume content not found.");
       
       const fileName = `${data.personalInfo.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
       
-      // Configuration strictly tuned for Multi-page A4
       const opt = {
-        margin: 0,
+        margin: [0, 0, 0, 0],
         filename: fileName,
-        image: { type: 'jpeg', quality: 1.0 },
-        // Use 'css' mode for multi-page support based on our pageBreakInside styles
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        image: { type: 'jpeg', quality: 0.98 },
+        pagebreak: { mode: ['css', 'legacy'] },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
+          allowTaint: true,
           letterRendering: true,
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          // Do not set fixed height here so it captures the full dynamic length
-          onclone: (clonedDoc: Document) => {
-            const body = clonedDoc.body;
-            body.style.margin = '0';
-            body.style.padding = '0';
-            
-            const resumeInClone = clonedDoc.querySelector('[data-resume-target]') as HTMLElement;
-            if (resumeInClone) {
-              // Complete removal of visual decorators that trigger canvas issues
-              resumeInClone.style.transform = 'none';
-              resumeInClone.style.transition = 'none';
-              resumeInClone.style.boxShadow = 'none';
-              resumeInClone.style.borderRadius = '0';
-              resumeInClone.style.border = 'none';
-              resumeInClone.style.margin = '0';
-              resumeInClone.style.padding = '0';
-              resumeInClone.style.position = 'static';
-              resumeInClone.style.overflow = 'visible';
-              resumeInClone.style.left = '0';
-              resumeInClone.style.top = '0';
-            }
-          }
+          backgroundColor: '#ffffff'
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
       };
       
-      // @ts-ignore - html2pdf loaded via CDN
+      // @ts-ignore
       await window.html2pdf().set(opt).from(element).save();
+      
     } catch (err) {
-      console.error("Advanced PDF Export failed:", err);
-      window.print(); // Final fallback
+      console.error("PDF Export error:", err);
+      window.print();
     } finally {
       setIsExporting(false);
     }
@@ -742,7 +716,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
          <div 
           ref={resumeRef}
           data-resume-target="true"
-          className="bg-white rounded-sm border border-slate-50"
+          className="bg-white rounded-sm border border-slate-50 overflow-visible"
           style={{ width: '210mm', minHeight: '297mm', position: 'relative', boxShadow: isExporting ? 'none' : '0 50px 100px rgba(0,0,0,0.15)' }}
          >
             <MasterTemplateSelector data={data} />

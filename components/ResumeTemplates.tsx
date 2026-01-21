@@ -14,27 +14,28 @@ export const MasterTemplateSelector: React.FC<TemplateProps> = ({ data }) => {
 
 /**
  * PIXEL-PERFECT YUKI BLUE (Zety Cascade Clone)
- * Optimized for Multi-page PDF Export with persistent sidebar background.
+ * Optimized for Multi-page PDF Flow. 
+ * Root container is Blue to ensure no white borders on the left.
+ * Right column is White for clean content reading.
  */
 const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
   const sidebarPadding = "px-9";
 
   return (
     <div 
-      className="w-[210mm] min-h-[297mm] flex font-sans text-[#333] selection:bg-blue-100 relative !m-0 !p-0"
+      className="w-[210mm] flex font-sans text-[#333] selection:bg-blue-100 relative m-0 p-0 border-none bg-[#004b93] min-h-[297mm]"
       style={{ 
-        boxSizing: 'border-box', 
-        border: 'none',
-        // Robust linear-gradient ensures the blue stripe exists on every page of the generated PDF
-        background: 'linear-gradient(to right, #004b93 0%, #004b93 33%, #ffffff 33%, #ffffff 100%)',
-        overflow: 'visible'
+        boxSizing: 'border-box',
+        overflow: 'visible',
+        display: 'flex',
+        flexDirection: 'row'
       }}
     >
-      {/* 
-          LEFT SIDEBAR (33%) 
-          Background is handled by the parent's gradient for multi-page consistency.
-      */}
-      <div className="w-[33%] text-white flex flex-col shrink-0 pb-12 m-0 p-0 border-none" style={{ height: 'auto' }}>
+      {/* LEFT SIDEBAR CONTENT (33%) - Inherits Blue from Parent */}
+      <div 
+        className="w-[33%] text-white flex flex-col shrink-0 pb-12 m-0 p-0 border-none" 
+        style={{ boxSizing: 'border-box' }}
+      >
         {/* Photo Container */}
         {data.personalInfo.profileImage && (
           <div className="pt-14 pb-8 flex justify-center" style={{ pageBreakInside: 'avoid' }}>
@@ -42,7 +43,9 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
               <img 
                 src={data.personalInfo.profileImage} 
                 alt={data.personalInfo.fullName} 
-                className="w-full h-full object-cover" 
+                crossOrigin="anonymous"
+                className="w-full h-full object-cover"
+                loading="eager"
               />
             </div>
           </div>
@@ -72,7 +75,7 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
 
           {/* SKILLS SECTION */}
           <section className="mb-10">
-            <div className="bg-black/15 px-9 py-2.5 mb-6">
+            <div className="bg-black/15 px-9 py-2.5 mb-6" style={{ pageBreakInside: 'avoid' }}>
               <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Skills</h2>
             </div>
             <div className={`${sidebarPadding} space-y-4`}>
@@ -95,7 +98,7 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
           {/* LANGUAGES SECTION */}
           {data.languages && data.languages.length > 0 && (
             <section className="mb-10">
-              <div className="bg-black/15 px-9 py-2.5 mb-6">
+              <div className="bg-black/15 px-9 py-2.5 mb-6" style={{ pageBreakInside: 'avoid' }}>
                 <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Languages</h2>
               </div>
               <div className={`${sidebarPadding} space-y-3`}>
@@ -109,7 +112,7 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
           {/* HOBBIES SECTION */}
           {data.hobbies && data.hobbies.length > 0 && (
             <section>
-              <div className="bg-black/15 px-9 py-2.5 mb-6">
+              <div className="bg-black/15 px-9 py-2.5 mb-6" style={{ pageBreakInside: 'avoid' }}>
                 <h2 className="text-[12px] font-black uppercase tracking-[0.25em]">Hobbies</h2>
               </div>
               <div className={`${sidebarPadding} space-y-3`}>
@@ -122,8 +125,11 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
         </div>
       </div>
       
-      {/* MAIN CONTENT (67%) */}
-      <div className="flex-1 flex flex-col bg-transparent border-none">
+      {/* MAIN CONTENT (67%) - White Background Layer */}
+      <div 
+        className="flex-1 flex flex-col bg-white border-none m-0 p-0" 
+        style={{ boxSizing: 'border-box', overflow: 'visible' }}
+      >
         <header className="pl-12 pr-12 pt-14 pb-6 border-b border-gray-100 flex flex-col items-start justify-center" style={{ pageBreakInside: 'avoid' }}>
           <h1 className="text-[38px] font-black text-slate-900 uppercase tracking-tighter leading-none mb-3">
             {data.personalInfo.fullName || 'Your Name'}
@@ -136,8 +142,8 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
         <div className="pl-12 pr-12 pt-8 pb-12 space-y-12">
           {/* SUMMARY */}
           {data.personalInfo.summary && (
-            <section style={{ pageBreakInside: 'avoid' }}>
-              <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6">
+            <section className="break-words">
+              <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6" style={{ pageBreakInside: 'avoid' }}>
                  <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Summary</h2>
               </div>
               <p className="text-[12px] text-slate-700 font-medium leading-[1.7] text-justify">
@@ -147,14 +153,14 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
           )}
 
           {/* EXPERIENCE */}
-          <section>
+          <section className="space-y-6">
             <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6" style={{ pageBreakInside: 'avoid' }}>
                <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Experience</h2>
             </div>
             <div className="space-y-10">
               {data.experience && data.experience.length > 0 ? data.experience.map(exp => (
-                <div key={exp.id} className="space-y-3" style={{ pageBreakInside: 'avoid' }}>
-                  <div className="flex justify-between items-start">
+                <div key={exp.id} className="space-y-3">
+                  <div className="flex justify-between items-start" style={{ pageBreakInside: 'avoid' }}>
                     <div className="space-y-1">
                       <h3 className="text-[14px] font-black text-slate-900 uppercase tracking-tight">{exp.position}</h3>
                       <p className="text-[12px] font-bold text-[#004b93] italic leading-none">{exp.company}{exp.location ? `, ${exp.location}` : ''}</p>
@@ -167,7 +173,7 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
                   </div>
                   <ul className="list-disc pl-5 text-[11px] text-slate-600 space-y-2 font-medium leading-relaxed marker:text-[#004b93]">
                     {exp.description && exp.description.split('\n').filter(l => l.trim()).map((line, i) => (
-                      <li key={i} className="pl-1">{line}</li>
+                      <li key={i} className="pl-1" style={{ pageBreakInside: 'auto' }}>{line}</li>
                     ))}
                   </ul>
                 </div>
@@ -178,7 +184,7 @@ const YukiBlueTemplate: React.FC<TemplateProps> = ({ data }) => {
           </section>
 
           {/* EDUCATION */}
-          <section>
+          <section className="space-y-6">
             <div className="flex items-center space-x-4 border-b-[3px] border-slate-900 pb-2 mb-6" style={{ pageBreakInside: 'avoid' }}>
                <h2 className="text-[14px] font-black text-slate-900 uppercase tracking-[0.2em] leading-none">Education</h2>
             </div>
