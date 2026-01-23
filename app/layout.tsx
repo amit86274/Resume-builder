@@ -1,16 +1,20 @@
-
 'use client';
 
 import React from 'react';
 import Navbar from '../components/Navbar';
-import { Link, usePathname } from '../lib/router';
+import { Link, usePathname } from '../services/router';
 import { Sparkles, Linkedin, Chrome, Github } from 'lucide-react';
 import { UserProvider } from '../context/UserContext';
 
+/**
+ * Root Layout Component
+ * Standard Next.js app/layout.tsx logic adapted for this environment
+ */
 export default function RootLayout({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
   const normalizedPath = pathname.replace(/^\/+/, '') || 'landing';
 
+  // Immersive pages hide the standard Nav/Footer (e.g., Builder)
   const immersivePages = ['builder', 'resume-option', 'upload-method', 'direct-port'];
   const showNavFooter = !immersivePages.includes(normalizedPath);
 

@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
 import AdminDashboard from '../../pages/AdminDashboard';
 import { useUser } from '../../context/UserContext';
-import { useRouter } from '../../lib/router';
+import { useRouter } from '../../services/router';
 
 export default function AdminPage() {
   const { user, isLoading } = useUser();

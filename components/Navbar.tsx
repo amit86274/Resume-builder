@@ -1,11 +1,10 @@
-
 import React, { useState } from 'react';
 import { 
   Sparkles, FileText, Layers, 
   ChevronDown, LayoutDashboard, LogOut, Bell, Menu, X, BarChart 
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
-import { useRouter, Link } from '../lib/router';
+import { useRouter, Link } from '../services/router';
 
 interface NavbarProps {
   currentPage?: string;

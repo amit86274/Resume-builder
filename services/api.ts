@@ -1,114 +1,167 @@
+import { User } from '../types';
+import { db } from './mongodb';
 
-import { User, Payment } from '../types';
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-export const API_BASE = '/api';
-
-const getHeaders = () => ({
-  'Content-Type': 'application/json',
-  'Authorization': `Bearer ${localStorage.getItem('resumaster_token')}`
-});
+// Strict Admin Configuration
+const ADMIN_EMAIL = 'amit86274@gmail.com';
+const ADMIN_PASSWORD = 'Chandigarh@321';
 
 export const MockAPI = {
-  getDebugUrl: () => API_BASE,
+  async socialLogin(provider: string, profile?: any): Promise<User> {
+    await sleep(800); 
+    
+    const finalProfile = profile || { 
+      name: 'Professional User', 
+      email: 'user@gmail.com',
+      picture: `https://i.pravatar.cc/150?u=${provider}`
+    };
+    
+    const emailLower = finalProfile.email.toLowerCase();
+    let user = await db.users.findOne({ email: emailLower });
 
-  async socialLogin(provider: string, profile: any): Promise<User> {
-    const response = await fetch(`${API_BASE}/auth/social`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        email: profile.email,
-        name: profile.name,
-        providerId: profile.sub || profile.id
-      })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Social Login Failed");
-    if (data.token) localStorage.setItem('resumaster_token', data.token);
-    return { ...data.user, id: data.user._id || data.user.id };
+    if (!user) {
+      user = await db.users.insertOne({
+        name: finalProfile.name,
+        email: emailLower,
+        role: emailLower === ADMIN_EMAIL ? 'admin' : 'user',
+        plan: 'free',
+        resumeCount: 0,
+        createdAt: new Date().toISOString(),
+        authProvider: provider,
+        avatar: finalProfile.picture || null
+      });
+    } else {
+      const updatedRole = emailLower === ADMIN_EMAIL ? 'admin' : 'user';
+      await db.users.updateOne(
+        { _id: user._id }, 
+        { 
+          authProvider: provider, 
+          avatar: finalProfile.picture || user.avatar,
+          role: updatedRole
+        }
+      );
+      user = await db.users.findOne({ _id: user._id });
+    }
+    
+    return { ...user, id: user._id };
   },
 
   async login(email: string, password?: string): Promise<User> {
-    const response = await fetch(`${API_BASE}/auth/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Login Failed");
-    if (data.token) localStorage.setItem('resumaster_token', data.token);
-    return { ...data.user, id: data.user._id || data.user.id };
-  },
+    await sleep(600);
+    const emailLower = email.toLowerCase();
+    const user = await db.users.findOne({ email: emailLower });
+    
+    if (!user) throw new Error('Account not found. Please sign up first.');
 
-  async signup(name: string, email: string, password?: string): Promise<User> {
-    const response = await fetch(`${API_BASE}/auth/signup`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, password })
-    });
-    const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Signup Failed");
-    if (data.token) localStorage.setItem('resumaster_token', data.token);
-    return { ...data.user, id: data.user._id || data.user.id };
-  },
-
-  // Fix: Added forgotPassword to resolve error in Auth.tsx
-  async forgotPassword(email: string): Promise<void> {
-    const response = await fetch(`${API_BASE}/auth/forgot-password`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email })
-    });
-    if (!response.ok && response.status !== 404) {
-      const data = await response.json();
-      throw new Error(data.error || "Reset request failed");
+    if (emailLower === ADMIN_EMAIL) {
+      if (password !== ADMIN_PASSWORD) {
+        throw new Error('Invalid credentials. Access denied.');
+      }
+      if (user.role !== 'admin') {
+        await db.users.updateOne({ _id: user._id }, { role: 'admin' });
+      }
+    } else {
+      if (user.role === 'admin') {
+        await db.users.updateOne({ _id: user._id }, { role: 'user' });
+      }
     }
+
+    return { ...user, id: user._id, role: emailLower === ADMIN_EMAIL ? 'admin' : 'user' };
   },
 
-  async logout() {
-    localStorage.removeItem('resumaster_token');
-    localStorage.removeItem('resuMaster_user');
+  async signup(name: string, email: string): Promise<User> {
+    await sleep(800);
+    const emailLower = email.toLowerCase();
+    const existing = await db.users.findOne({ email: emailLower });
+    
+    if (existing) throw new Error('This email is already registered. Please sign in.');
+
+    const user = await db.users.insertOne({
+      name,
+      email: emailLower,
+      role: emailLower === ADMIN_EMAIL ? 'admin' : 'user',
+      plan: 'free',
+      resumeCount: 0,
+      createdAt: new Date().toISOString()
+    });
+    
+    return { ...user, id: user._id };
+  },
+
+  async forgotPassword(email: string): Promise<void> {
+    await sleep(1000);
+    const emailLower = email.toLowerCase();
+    const user = await db.users.findOne({ email: emailLower });
+    
+    if (!user) {
+      // For security, don't confirm email exists, but we'll simulate for UX
+      throw new Error('Account not found with this email address.');
+    }
+    // Logic to send email would happen here in a real backend
+    return;
   },
 
   async getResumes(userId: string): Promise<any[]> {
-    const response = await fetch(`${API_BASE}/db/resumes`, { headers: getHeaders() });
-    return await response.json() || [];
+    const resumes = await db.resumes.find();
+    // Filter locally if necessary, but the Collection simulator handles basic retrieval
+    return resumes.filter((r: any) => r.userId === userId).map(r => ({ ...r, id: r._id }));
   },
 
-  // Fix: Added getPayments to resolve error in Dashboard.tsx
-  async getPayments(userId: string): Promise<Payment[]> {
-    const response = await fetch(`${API_BASE}/db/payments`, { headers: getHeaders() });
-    const data = await response.json();
-    return Array.isArray(data) ? data : [];
-  },
-
-  async saveResume(userId: string, data: any): Promise<any> {
-    const isUpdate = !!(data._id || data.id);
-    const method = isUpdate ? 'PUT' : 'POST';
-    const response = await fetch(`${API_BASE}/db/resumes`, {
-      method,
-      headers: getHeaders(),
-      body: JSON.stringify(isUpdate ? { _id: data._id || data.id, update: data } : data)
-    });
-    return await response.json();
+  async saveResume(userId: string, resume: any): Promise<void> {
+    const resumeId = resume._id || resume.id;
+    if (resumeId) {
+      await db.resumes.updateOne({ _id: resumeId }, { ...resume, userId, lastEdited: new Date().toISOString() });
+    } else {
+      await db.resumes.insertOne({ 
+        ...resume, 
+        userId, 
+        lastEdited: new Date().toISOString() 
+      });
+    }
   },
 
   async deleteResume(userId: string, resumeId: string): Promise<void> {
-    await fetch(`${API_BASE}/db/resumes`, {
-      method: 'DELETE',
-      headers: getHeaders(),
-      body: JSON.stringify({ _id: resumeId })
-    });
+    await db.resumes.deleteOne({ _id: resumeId });
+  },
+
+  async processPayment(userId: string, planId: string): Promise<User> {
+    await sleep(1500); 
+    const success = await db.users.updateOne({ _id: userId }, { plan: planId as any });
+    if (!success) throw new Error('Transaction failed.');
+    
+    const user = await db.users.findOne({ _id: userId });
+    return { ...user, id: user._id };
   }
 };
 
-// Fix: Exported AdminAPI to resolve error in AdminDashboard.tsx
 export const AdminAPI = {
-  async getAllUsers(): Promise<User[]> {
-    const response = await fetch(`${API_BASE}/db/users`, { headers: getHeaders() });
-    return await response.json() || [];
+  async getAllUsers(): Promise<any[]> {
+    const users = await db.users.find();
+    return users.map(u => ({ ...u, id: u._id }));
   },
-  async getFinancialStats(): Promise<any> {
-    const response = await fetch(`${API_BASE}/db/admin-stats`, { headers: getHeaders() });
-    return await response.json() || { totalRevenue: 0, totalUsers: 0, dbStats: { documentCount: 0 } };
+
+  async getFinancialStats() {
+    const users = await db.users.find();
+    const resumes = await db.resumes.find();
+    
+    const proCount = users.filter(u => u.plan === 'pro').length;
+    const annualCount = users.filter(u => u.plan === 'annual').length;
+    
+    const totalRevenue = (proCount * 195) + (annualCount * 1195);
+    
+    return {
+      totalUsers: users.length,
+      proUsers: proCount,
+      annualUsers: annualCount,
+      totalRevenue: totalRevenue,
+      conversionRate: users.length > 0 ? ((proCount + annualCount) / users.length * 100).toFixed(1) : 0,
+      dbStats: {
+        engine: db.engine,
+        status: db.status,
+        collections: ['users', 'resumes'],
+        documentCount: users.length + resumes.length
+      }
+    };
   }
 };

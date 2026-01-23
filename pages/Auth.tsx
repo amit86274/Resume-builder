@@ -1,16 +1,21 @@
-
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
-  Mail, Lock, ArrowRight, 
+  Mail, Lock, ArrowRight, Chrome, 
   CheckCircle2, Sparkles, 
-  Eye, EyeOff, Loader2, AlertCircle, User as UserIcon
+  Eye, EyeOff, Loader2, AlertCircle, ChevronLeft, User
 } from 'lucide-react';
-import { MockAPI } from '../lib/api';
+import { MockAPI } from '../services/api';
 
 interface AuthProps {
-  initialMode?: 'login' | 'signup';
+  initialMode?: 'login' | 'signup' | 'forgot';
   onAuthSuccess: (user: any) => void;
   onNavigate: (page: string) => void;
+}
+
+declare global {
+  interface Window {
+    google: any;
+  }
 }
 
 const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNavigate }) => {
@@ -19,163 +24,313 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
   const [isLoading, setIsLoading] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isResetSent, setIsResetSent] = useState(false);
+  const googleButtonRef = useRef<HTMLDivElement>(null);
+  
+  const GOOGLE_CLIENT_ID = "177022877254-ec4lvlhokefb9i8ck0julbhc5pg6sr8v.apps.googleusercontent.com";
 
   const [formData, setFormData] = useState({
     name: '',
     email: '',
     password: '',
+    agreeToTerms: false
   });
 
-  const validateForm = () => {
-    if (mode === 'signup' && !formData.name.trim()) {
-      setError("Please enter your full name");
-      return false;
+  const isGoogleIdValid = GOOGLE_CLIENT_ID && !GOOGLE_CLIENT_ID.startsWith("YOUR_GOOGLE");
+
+  useEffect(() => {
+    const handleGoogleCredentialResponse = (response: any) => {
+      try {
+        const base64Url = response.credential.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(window.atob(base64).split('').map(function(c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+
+        const payload = JSON.parse(jsonPayload);
+        
+        handleSocialSuccess('google', {
+          name: payload.name,
+          email: payload.email,
+          picture: payload.picture,
+          sub: payload.sub
+        });
+      } catch (e) {
+        setError("Failed to process Google login. Please try again.");
+      }
+    };
+
+    const initGoogle = () => {
+      if (window.google && isGoogleIdValid) {
+        try {
+          window.google.accounts.id.initialize({
+            client_id: GOOGLE_CLIENT_ID,
+            callback: handleGoogleCredentialResponse,
+            auto_select: false,
+            cancel_on_tap_outside: true,
+          });
+
+          if (googleButtonRef.current) {
+            window.google.accounts.id.renderButton(googleButtonRef.current, {
+              theme: 'outline',
+              size: 'large',
+              width: '100%',
+              text: mode === 'signup' ? 'signup_with' : 'signin_with',
+              shape: 'rectangular',
+            });
+          }
+        } catch (err) {
+          console.error("Google Auth Initialization Error:", err);
+        }
+      }
+    };
+
+    const timer = setTimeout(initGoogle, 1000);
+    return () => clearTimeout(timer);
+  }, [mode, GOOGLE_CLIENT_ID, isGoogleIdValid]);
+
+  const handleSocialSuccess = async (provider: string, profile: any) => {
+    setIsLoading(provider);
+    try {
+      const user = await MockAPI.socialLogin(provider, profile);
+      onAuthSuccess(user);
+    } catch (err: any) {
+      setError(err.message || "Social login failed.");
+    } finally {
+      setIsLoading(null);
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(formData.email)) {
-      setError("Please enter a valid email address");
-      return false;
+  };
+
+  const handleSimulatedGoogleAuth = async () => {
+    setIsLoading('google');
+    setError(null);
+    try {
+      const user = await MockAPI.socialLogin('google');
+      onAuthSuccess(user);
+    } catch (err: any) {
+      setError(err.message || "Google connection failed.");
+    } finally {
+      setIsLoading(null);
     }
-    if (mode !== 'forgot' && formData.password.length < 6) {
-      setError("Password must be at least 6 characters long");
-      return false;
-    }
-    return true;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsLoading('email');
     setError(null);
-    if (!validateForm()) return;
-
-    setIsLoading('auth');
     try {
       if (mode === 'forgot') {
         await MockAPI.forgotPassword(formData.email);
         setIsResetSent(true);
       } else {
         const user = mode === 'signup' 
-          ? await MockAPI.signup(formData.name, formData.email, formData.password)
+          ? await MockAPI.signup(formData.name, formData.email)
           : await MockAPI.login(formData.email, formData.password);
-        
-        console.log('[Auth] Success:', user.email);
         onAuthSuccess(user);
       }
     } catch (err: any) {
-      console.error('[Auth] Error:', err.message);
-      setError(err.message || "An unexpected error occurred. Please try again.");
+      setError(err.message);
     } finally {
       setIsLoading(null);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center py-12 px-4 bg-slate-50/50">
-      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200 overflow-hidden border border-slate-100">
+    <div className="min-h-screen flex items-center justify-center py-[50px] px-4 bg-slate-50/50 transition-all duration-500">
+      <div className="max-w-5xl w-full grid grid-cols-1 lg:grid-cols-2 bg-white rounded-[2.5rem] shadow-2xl shadow-slate-200 overflow-hidden border border-slate-100 animate-in fade-in zoom-in-95 duration-700">
         
-        {/* Brand Side */}
-        <div className="hidden lg:flex flex-col justify-between p-16 bg-animate-gradient text-white relative">
+        {/* Branding & Social Proof Panel */}
+        <div className="hidden lg:flex flex-col justify-between p-12 bg-animate-gradient text-white relative overflow-hidden">
+          <div className="absolute inset-0 bg-black/10" /> 
           <div className="relative z-10">
-            <button onClick={() => onNavigate('landing')} className="flex items-center space-x-2 mb-20">
+            <button onClick={() => onNavigate('/')} className="flex items-center space-x-2 mb-16">
               <Sparkles className="w-8 h-8 text-white drop-shadow-lg" />
-              <span className="text-2xl font-black">ResuMaster AI</span>
+              <span className="text-2xl font-black drop-shadow-md">ResuMaster AI</span>
             </button>
-            <h2 className="text-5xl font-black mb-10 leading-tight">Elevate your career with AI.</h2>
+            <h2 className="text-4xl font-black leading-tight mb-8 drop-shadow-md">
+              Build a resume that <br />
+              <span className="text-white/90">actually works.</span>
+            </h2>
             <ul className="space-y-6">
               {[
-                "AI-Powered Content Optimization",
-                "ATS-Compatible Master Templates",
-                "Real-time Neural Porting",
-                "Premium PDF Exports"
+                "AI-Powered Smart Content", 
+                "99% ATS Pass Rate", 
+                "Free Expert Templates"
               ].map((text, i) => (
                 <li key={i} className="flex items-center space-x-4">
-                  <div className="p-1 bg-white/20 rounded-full">
+                  <div className="bg-white/20 p-1 rounded-full backdrop-blur-md">
                     <CheckCircle2 className="w-5 h-5 text-white" />
                   </div>
-                  <span className="font-bold text-lg opacity-90">{text}</span>
+                  <span className="text-white font-bold drop-shadow-sm">{text}</span>
                 </li>
               ))}
             </ul>
           </div>
-          
-          <div className="relative z-10 pt-10 border-t border-white/10">
-            <p className="text-sm font-medium opacity-60">Join 100,000+ professionals using ResuMaster AI to land their dream roles.</p>
+          <div className="relative z-10 text-[10px] font-black text-white/60 uppercase tracking-[0.2em]">
+            Trusted by candidates at Google, Meta & TCS
           </div>
         </div>
 
-        {/* Form Side */}
-        <div className="p-10 md:p-20 flex flex-col justify-center bg-white relative">
+        {/* Form Panel */}
+        <div className="p-8 md:p-16 flex flex-col justify-center relative bg-white min-h-[600px]">
           {isLoading && (
-            <div className="absolute inset-0 bg-white/80 backdrop-blur-sm z-50 flex items-center justify-center">
-              <div className="flex flex-col items-center space-y-4">
-                <Loader2 className="w-12 h-12 text-blue-600 animate-spin" />
-                <p className="text-xs font-black text-blue-600 uppercase tracking-widest animate-pulse">Authenticating...</p>
+            <div className="absolute inset-0 bg-white/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-in fade-in duration-300">
+              <div className="relative mb-6">
+                 <Loader2 className="w-16 h-16 text-blue-600 animate-spin" />
+                 <Sparkles className="w-6 h-6 text-blue-400 absolute inset-0 m-auto animate-pulse" />
               </div>
+              <p className="font-black text-slate-900 uppercase tracking-[0.2em] text-[10px]">
+                {mode === 'forgot' ? 'Sending Reset Link...' : 'Verifying Account...'}
+              </p>
             </div>
           )}
 
           <div className="max-w-md w-full mx-auto">
             {isResetSent ? (
-              <div className="text-center space-y-8 animate-in fade-in zoom-in duration-500">
-                <div className="w-20 h-20 bg-green-50 text-green-600 rounded-full flex items-center justify-center mx-auto shadow-xl">
+              <div className="text-center space-y-8 animate-in zoom-in duration-500">
+                <div className="w-20 h-20 bg-green-50 text-green-600 rounded-3xl flex items-center justify-center mx-auto shadow-xl shadow-green-100">
                   <CheckCircle2 className="w-10 h-10" />
                 </div>
-                <h2 className="text-3xl font-black text-slate-900">Link Sent!</h2>
-                <p className="text-slate-500 font-medium leading-relaxed">Check your inbox for a password reset link.</p>
-                <button onClick={() => { setIsResetSent(false); setMode('login'); }} className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase text-xs tracking-widest hover:bg-blue-600 transition-all">Back to Login</button>
+                <div className="space-y-2">
+                  <h2 className="text-3xl font-black text-slate-900">Check your email</h2>
+                  <p className="text-slate-500 font-medium">We've sent a password reset link to <span className="text-slate-900 font-bold">{formData.email}</span></p>
+                </div>
+                <button 
+                  onClick={() => { setIsResetSent(false); setMode('login'); }}
+                  className="w-full py-5 bg-slate-900 text-white rounded-2xl font-black uppercase tracking-[0.2em] hover:bg-blue-600 transition-all shadow-xl shadow-slate-900/10 text-xs"
+                >
+                  Back to Login
+                </button>
               </div>
             ) : (
               <>
-                <div className="mb-12">
-                  <h1 className="text-4xl font-black text-slate-900 mb-3 tracking-tight">
-                    {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Get Started' : 'Reset Access'}
+                <div className="mb-8">
+                  {mode === 'forgot' && (
+                    <button 
+                      onClick={() => setMode('login')} 
+                      className="inline-flex items-center text-slate-400 hover:text-blue-600 font-black uppercase tracking-widest text-[10px] mb-4 transition-colors"
+                    >
+                      <ChevronLeft className="w-4 h-4 mr-1" /> Back to Login
+                    </button>
+                  )}
+                  <h1 className="text-3xl font-black text-slate-900 mb-2">
+                    {mode === 'login' ? 'Welcome Back' : mode === 'signup' ? 'Create Account' : 'Reset Password'}
                   </h1>
-                  <p className="text-slate-400 font-medium">The most advanced AI resume engine in India.</p>
+                  <p className="text-slate-500 font-medium">
+                    {mode === 'forgot' ? 'Enter your email to receive a secure reset link.' : 'Join 50k+ professionals using AI to win.'}
+                  </p>
                 </div>
 
                 {error && (
-                  <div className="mb-8 p-5 bg-red-50 border border-red-100 rounded-2xl flex items-center text-red-600 font-bold text-sm animate-in slide-in-from-top-2">
-                    <AlertCircle className="w-5 h-5 mr-3 shrink-0" /> {error}
+                  <div className="mb-6 p-4 bg-red-50 border border-red-100 rounded-2xl flex items-center space-x-3 text-red-600 animate-in slide-in-from-top-2">
+                    <AlertCircle className="w-5 h-5 shrink-0" />
+                    <p className="text-sm font-bold">{error}</p>
                   </div>
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-5">
                   {mode === 'signup' && (
-                    <div className="relative group">
-                       <UserIcon className="absolute left-5 top-[21px] w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                       <input required type="text" placeholder="Full Name" className="w-full pl-14 pr-5 py-5 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-blue-500 font-semibold transition-all text-black" onChange={e => setFormData({...formData, name: e.target.value})} />
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Full Name</label>
+                      <div className="relative group">
+                        <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                        <input 
+                          type="text" 
+                          required
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                          placeholder="Your Name"
+                          value={formData.name}
+                          onChange={e => setFormData({...formData, name: e.target.value})}
+                        />
+                      </div>
                     </div>
                   )}
-                  <div className="relative group">
-                    <Mail className="absolute left-5 top-[21px] w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                    <input required type="email" placeholder="Email Address" className="w-full pl-14 pr-5 py-5 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-blue-500 font-semibold transition-all text-black" onChange={e => setFormData({...formData, email: e.target.value})} />
+
+                  <div className="space-y-2">
+                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Email Address</label>
+                    <div className="relative group">
+                      <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                      <input 
+                        type="email" 
+                        required
+                        className="w-full pl-12 pr-4 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                        placeholder="name@company.com"
+                        value={formData.email}
+                        onChange={e => setFormData({...formData, email: e.target.value})}
+                      />
+                    </div>
                   </div>
+
                   {mode !== 'forgot' && (
-                    <div className="relative group">
-                      <Lock className="absolute left-5 top-[21px] w-5 h-5 text-slate-300 group-focus-within:text-blue-500 transition-colors" />
-                      <input required type={showPassword ? "text" : "password"} placeholder="Password" className="w-full pl-14 pr-12 py-5 bg-slate-50 rounded-2xl outline-none border-2 border-transparent focus:border-blue-500 font-semibold transition-all text-black" onChange={e => setFormData({...formData, password: e.target.value})} />
-                      <button type="button" onClick={() => setShowPassword(!showPassword)} className="absolute right-5 top-[21px] text-slate-400 hover:text-blue-500 transition-colors">
-                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
-                      </button>
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-center ml-1">
+                        <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Password</label>
+                        {mode === 'login' && (
+                          <button 
+                            type="button"
+                            onClick={() => setMode('forgot')}
+                            className="text-[10px] font-black text-blue-600 uppercase tracking-widest hover:text-blue-700"
+                          >
+                            Forgot?
+                          </button>
+                        )}
+                      </div>
+                      <div className="relative group">
+                        <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-300 group-focus-within:text-blue-600 transition-colors" />
+                        <input 
+                          type={showPassword ? 'text' : 'password'} 
+                          required
+                          className="w-full pl-12 pr-12 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-medium text-slate-900"
+                          placeholder="••••••••"
+                          value={formData.password}
+                          onChange={e => setFormData({...formData, password: e.target.value})}
+                        />
+                        <button 
+                          type="button"
+                          onClick={() => setShowPassword(!showPassword)}
+                          className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300 hover:text-slate-600 transition-all"
+                        >
+                          {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                        </button>
+                      </div>
                     </div>
                   )}
 
-                  {mode === 'login' && (
-                    <div className="text-right">
-                      <button type="button" onClick={() => setMode('forgot')} className="text-xs font-black text-blue-600 uppercase tracking-widest hover:underline">Forgot Password?</button>
-                    </div>
-                  )}
-
-                  <button type="submit" disabled={!!isLoading} className="w-full py-6 text-white rounded-2xl font-black uppercase text-xs tracking-[0.2em] bg-slate-900 hover:bg-blue-600 shadow-2xl shadow-slate-900/10 active:scale-95 transition-all disabled:opacity-50">
-                    {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'} <ArrowRight className="ml-2 w-4 h-4 inline" />
+                  <button 
+                    type="submit"
+                    className="w-full py-5 bg-animate-gradient text-white rounded-2xl font-black uppercase tracking-[0.2em] hover:opacity-90 transition-all shadow-xl shadow-blue-500/20 flex items-center justify-center text-xs group"
+                  >
+                    {mode === 'login' ? 'Sign In' : mode === 'signup' ? 'Create Account' : 'Send Reset Link'}
+                    <ArrowRight className="ml-2 w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </button>
                 </form>
 
-                <div className="mt-12 text-center">
-                  <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError(null); }} className="text-xs font-black text-slate-400 hover:text-blue-600 transition-colors uppercase tracking-[0.2em]">
-                    {mode === 'login' ? "New to ResuMaster? Join Now" : "Already have an account? Login"}
-                  </button>
+                <div className="my-8 flex items-center space-x-4">
+                  <div className="h-px flex-1 bg-slate-100" />
+                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest">or continue with</span>
+                  <div className="h-px flex-1 bg-slate-100" />
                 </div>
+
+                <div className="space-y-4">
+                  <div ref={googleButtonRef} className="w-full" />
+                  
+                  {!isGoogleIdValid && (
+                    <button 
+                      onClick={handleSimulatedGoogleAuth}
+                      className="w-full py-4 border-2 border-slate-100 rounded-2xl flex items-center justify-center space-x-3 hover:bg-slate-50 transition-all group"
+                    >
+                      <Chrome className="w-5 h-5 text-slate-600" />
+                      <span className="text-sm font-bold text-slate-600">Connect Google Account</span>
+                    </button>
+                  )}
+                </div>
+
+                <p className="mt-10 text-center text-slate-500 font-medium">
+                  {mode === 'login' ? (
+                    <>Don't have an account? <button onClick={() => setMode('signup')} className="text-blue-600 font-bold hover:underline">Sign up for free</button></>
+                  ) : (
+                    <>Already have an account? <button onClick={() => setMode('login')} className="text-blue-600 font-bold hover:underline">Sign in</button></>
+                  )}
+                </p>
               </>
             )}
           </div>

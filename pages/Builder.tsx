@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   ChevronRight, ChevronLeft, Plus, Trash2, Sparkles, 
@@ -13,15 +12,16 @@ import {
 import { ResumeData, TemplateTier, Experience, Education, Skill, Project } from '../types';
 import { INITIAL_RESUME, TEMPLATES, MOCK_RESUME_DATA } from '../constants';
 import { MasterTemplateSelector } from '../components/ResumeTemplates';
-import { useRouter, useSearchParams, builderSession } from '../lib/router';
+import { useRouter, useSearchParams } from '../services/router';
 import { 
   getResponsibilitiesSuggestions, 
   getSkillSuggestions, 
   generateSummarySuggestions,
   improveSummary,
   finalizeAndPolishResume
-} from '../lib/gemini';
-import { MockAPI } from '../lib/api';
+} from '../services/gemini';
+import { MockAPI } from '../services/api';
+import { safeStorage } from '../services/mongodb';
 
 const MONTHS = ['Month', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const YEARS = ['Year', ...Array.from({ length: 60 }, (_, i) => (new Date().getFullYear() - i).toString())];
@@ -49,7 +49,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const resumeRef = useRef<HTMLDivElement>(null);
   
   const [data, setData] = useState<ResumeData>(() => {
-    const savedDraft = localStorage.getItem('resumaster_current_draft');
+    const savedDraft = safeStorage.getItem('resumaster_current_draft');
     if (savedDraft && !prefilledData) {
       try {
         return JSON.parse(savedDraft);
@@ -130,7 +130,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   ];
 
   useEffect(() => {
-    localStorage.setItem('resumaster_current_draft', JSON.stringify(data));
+    safeStorage.setItem('resumaster_current_draft', JSON.stringify(data));
 
     let score = 0;
     if (data.personalInfo.fullName) score += 10;
@@ -231,6 +231,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         setCropOffset({ x: 0, y: 0 });
         setIsCropping(true);
         const img = new Image();
+        img.crossOrigin = "anonymous";
         img.src = result;
         img.onload = () => { imgRef.current = img; drawCanvas(); };
       };
@@ -240,10 +241,15 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
 
   const handleApplyCrop = () => {
     if (canvasRef.current) {
-      const croppedImage = canvasRef.current.toDataURL('image/png');
-      handlePersonalInfoUpdate('profileImage', croppedImage);
-      setIsCropping(false);
-      setTempImage(null);
+      try {
+        const croppedImage = canvasRef.current.toDataURL('image/png');
+        handlePersonalInfoUpdate('profileImage', croppedImage);
+        setIsCropping(false);
+        setTempImage(null);
+      } catch (e) {
+        console.error("Crop failure (likely SecurityError):", e);
+        alert("Unable to process this image due to browser security restrictions. Please try a different photo.");
+      }
     }
   };
 
@@ -330,45 +336,80 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     return 'Novice';
   };
 
+  const convertImageToDataUrl = async (url: string): Promise<string> => {
+    try {
+      const cacheBustUrl = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
+      const response = await fetch(cacheBustUrl, { mode: 'cors' });
+      const blob = await response.blob();
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result as string);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    } catch (e) {
+      console.warn("Failed to convert image to DataURL, falling back to original URL", e);
+      return url;
+    }
+  };
+
   const handleDownloadPdf = async () => {
     if (isExporting) return;
     setIsExporting(true);
     window.scrollTo(0, 0);
 
     try {
+      // Convert external image to base64 to avoid canvas tainting
+      if (data.personalInfo.profileImage && !data.personalInfo.profileImage.startsWith('data:')) {
+        const localDataUrl = await convertImageToDataUrl(data.personalInfo.profileImage);
+        setData(prev => ({
+          ...prev,
+          personalInfo: { ...prev.personalInfo, profileImage: localDataUrl }
+        }));
+        await new Promise(r => setTimeout(r, 800));
+      }
+
       const polishedData = await finalizeAndPolishResume(data);
       setData(polishedData);
-      
       await new Promise(r => setTimeout(r, 1200));
 
       const element = resumeRef.current;
       if (!element) throw new Error("Printable resume content not found.");
       
-      const fileName = `${data.personalInfo.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
+      const fileName = `${(data.personalInfo.fullName || 'Resume').trim().replace(/\s+/g, '_')}_Resume.pdf`;
       
       const opt = {
-        margin: [0, 0, 0, 0],
+        margin: 0,
         filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        pagebreak: { mode: ['css', 'legacy'] },
+        image: { type: 'jpeg', quality: 1.0 },
+        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
           allowTaint: true,
-          letterRendering: true,
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          backgroundColor: '#ffffff'
+          onclone: (clonedDoc: Document) => {
+            const resumeInClone = clonedDoc.querySelector('[data-resume-target]') as HTMLElement;
+            if (resumeInClone) {
+              resumeInClone.style.transform = 'none';
+              resumeInClone.style.boxShadow = 'none';
+              resumeInClone.style.borderRadius = '0';
+              resumeInClone.style.margin = '0';
+              resumeInClone.style.padding = '0';
+              resumeInClone.style.position = 'static';
+            }
+          }
         },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
       };
       
       // @ts-ignore
       await window.html2pdf().set(opt).from(element).save();
-      
     } catch (err) {
-      console.error("PDF Export error:", err);
+      console.error("Advanced PDF Export failed:", err);
+      alert("A security restriction occurred. This can happen with certain browsers. Attempting standard print.");
       window.print();
     } finally {
       setIsExporting(false);
@@ -377,8 +418,8 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
 
   const handleSaveToDashboard = async () => {
     if (!user) {
-      localStorage.setItem('resumaster_pending_save', JSON.stringify(data));
-      push('/signup?redirect=dashboard');
+      safeStorage.setItem('resumaster_pending_save', JSON.stringify(data));
+      push('/auth?mode=signup');
       return;
     }
 
@@ -389,7 +430,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         title: data.personalInfo.fullName ? `${data.personalInfo.fullName}'s Resume` : 'My Resume',
         lastEdited: new Date().toISOString()
       });
-      localStorage.removeItem('resumaster_current_draft');
+      safeStorage.removeItem('resumaster_current_draft');
       push('/dashboard');
     } catch (err) {
       alert("Error saving your resume. Please check your connection.");
@@ -415,7 +456,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
               className="w-40 h-48 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200 group-hover:border-blue-400 cursor-pointer relative shadow-sm hover:shadow-xl transition-all duration-300"
             >
               {data.personalInfo.profileImage ? (
-                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover animate-in fade-in" />
+                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover animate-in fade-in" crossOrigin="anonymous" />
               ) : (
                 <div className="flex flex-col items-center space-y-2 text-slate-400 group-hover:text-blue-500 transition-colors">
                   <Camera className="w-10 h-10" />
@@ -717,7 +758,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
          <div 
           ref={resumeRef}
           data-resume-target="true"
-          className="bg-white rounded-sm border border-slate-50 overflow-visible"
+          className="bg-white rounded-sm border border-slate-50"
           style={{ width: '210mm', minHeight: '297mm', position: 'relative', boxShadow: isExporting ? 'none' : '0 50px 100px rgba(0,0,0,0.15)' }}
          >
             <MasterTemplateSelector data={data} />

@@ -1,8 +1,6 @@
 
 export interface ResumeData {
   id: string;
-  _id?: string;
-  userId?: string;
   title: string;
   templateId: string;
   lastEdited: string;
@@ -14,7 +12,7 @@ export interface ResumeData {
     linkedin: string;
     portfolio: string;
     summary: string;
-    profileImage?: string;
+    profileImage?: string; // Base64 string of the uploaded/cropped image
   };
   experience: Experience[];
   education: Education[];
@@ -61,33 +59,12 @@ export interface Project {
 
 export interface User {
   id: string;
-  _id: string;
   name: string;
   email: string;
   role: 'user' | 'admin';
   plan: 'free' | 'pro' | 'annual';
-  subscription?: {
-    status: 'active' | 'expired' | 'cancelled';
-    currentPeriodEnd: string;
-    razorpayCustomerId?: string;
-  };
-  metadata: {
-    resumeCount: number;
-    totalDownloads: number;
-    lastLogin: string;
-  };
-}
-
-export interface Payment {
-  _id: string;
-  userId: string;
-  amount: number;
-  currency: string;
-  plan: 'pro' | 'annual';
-  status: 'captured' | 'failed' | 'refunded';
-  razorpayPaymentId: string;
-  razorpayOrderId: string;
-  createdAt: string;
+  trialEndsAt?: string;
+  resumeCount: number;
 }
 
 export enum TemplateTier {
@@ -100,4 +77,12 @@ export interface ResumeTemplate {
   name: string;
   tier: TemplateTier;
   thumbnail: string;
+}
+
+export interface AnalyzerResult {
+  score: number;
+  missingSections: string[];
+  contentSuggestions: string[];
+  atsScore: number;
+  generalFeedback: string;
 }

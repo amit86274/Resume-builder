@@ -1,9 +1,8 @@
-
 'use client';
 
 import React from 'react';
 import TemplatesGallery from '../../components/TemplatesGallery';
-import { useRouter } from '../../lib/router';
+import { useRouter } from '../../services/router';
 
 export default function TemplatesPage() {
   const { push } = useRouter();

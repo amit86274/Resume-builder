@@ -1,10 +1,9 @@
-
 'use client';
 
 import React, { useEffect } from 'react';
 import Dashboard from '../../pages/Dashboard';
 import { useUser } from '../../context/UserContext';
-import { useRouter } from '../../lib/router';
+import { useRouter } from '../../services/router';
 
 export default function DashboardPage() {
   const { user, setUser, isLoading } = useUser();
