@@ -95,16 +95,13 @@ export const MockAPI = {
     const user = await db.users.findOne({ email: emailLower });
     
     if (!user) {
-      // For security, don't confirm email exists, but we'll simulate for UX
       throw new Error('Account not found with this email address.');
     }
-    // Logic to send email would happen here in a real backend
     return;
   },
 
   async getResumes(userId: string): Promise<any[]> {
     const resumes = await db.resumes.find();
-    // Filter locally if necessary, but the Collection simulator handles basic retrieval
     return resumes.filter((r: any) => r.userId === userId).map(r => ({ ...r, id: r._id }));
   },
 
@@ -125,8 +122,20 @@ export const MockAPI = {
     await db.resumes.deleteOne({ _id: resumeId });
   },
 
-  async processPayment(userId: string, planId: string): Promise<User> {
-    await sleep(1500); 
+  async processPayment(userId: string, planId: string, razorpayResponse?: any): Promise<User> {
+    await sleep(500); 
+    const amount = planId === 'pro' ? 195 : 1195;
+    
+    await db.transactions.insertOne({
+      userId,
+      amount,
+      plan: planId,
+      status: 'success',
+      timestamp: new Date().toISOString(),
+      txnId: razorpayResponse?.razorpay_payment_id || `TXN_${Math.random().toString(36).substring(2, 10).toUpperCase()}`,
+      razorpay_order_id: razorpayResponse?.razorpay_order_id
+    });
+
     const success = await db.users.updateOne({ _id: userId }, { plan: planId as any });
     if (!success) throw new Error('Transaction failed.');
     
@@ -141,17 +150,70 @@ export const AdminAPI = {
     return users.map(u => ({ ...u, id: u._id }));
   },
 
+  async getAllResumes(): Promise<any[]> {
+    const resumes = await db.resumes.find();
+    const users = await db.users.find();
+    return resumes.map(r => {
+      const owner = users.find(u => u._id === r.userId);
+      return { ...r, id: r._id, ownerEmail: owner?.email || 'Unknown' };
+    });
+  },
+
+  async getTransactions(): Promise<any[]> {
+    const txns = await db.transactions.find();
+    const users = await db.users.find();
+    return txns.map(t => {
+      const owner = users.find(u => u._id === t.userId);
+      return { ...t, id: t._id, ownerEmail: owner?.email || 'Unknown' };
+    });
+  },
+
+  async getUserDetails(userId: string) {
+    const users = await db.users.find();
+    const resumes = await db.resumes.find();
+    const txns = await db.transactions.find();
+    
+    const user = users.find(u => u._id === userId);
+    if (!user) return null;
+
+    return {
+      user: { ...user, id: user._id },
+      resumes: resumes.filter(r => r.userId === userId).map(r => ({ ...r, id: r._id })),
+      transactions: txns.filter(t => t.userId === userId).map(t => ({ ...t, id: t._id }))
+    };
+  },
+
+  async updateUser(userId: string, update: { role?: string, plan?: string }) {
+    await sleep(300);
+    return await db.users.updateOne({ _id: userId }, update);
+  },
+
+  async createUser(data: { name: string, email: string, role: string, plan: string }) {
+    await sleep(500);
+    const existing = await db.users.findOne({ email: data.email.toLowerCase() });
+    if (existing) throw new Error('User already exists');
+
+    return await db.users.insertOne({
+      ...data,
+      email: data.email.toLowerCase(),
+      createdAt: new Date().toISOString(),
+      resumeCount: 0
+    });
+  },
+
   async getFinancialStats() {
     const users = await db.users.find();
     const resumes = await db.resumes.find();
+    const txns = await db.transactions.find();
     
     const proCount = users.filter(u => u.plan === 'pro').length;
     const annualCount = users.filter(u => u.plan === 'annual').length;
-    
-    const totalRevenue = (proCount * 195) + (annualCount * 1195);
+    const totalRevenue = txns.reduce((sum, t) => sum + (t.amount || 0), 0);
     
     return {
       totalUsers: users.length,
+      totalResumes: resumes.length,
+      totalTransactions: txns.length,
       proUsers: proCount,
       annualUsers: annualCount,
       totalRevenue: totalRevenue,
@@ -159,9 +221,18 @@ export const AdminAPI = {
       dbStats: {
         engine: db.engine,
         status: db.status,
-        collections: ['users', 'resumes'],
-        documentCount: users.length + resumes.length
+        collections: ['users', 'resumes', 'transactions'],
+        documentCount: users.length + resumes.length + txns.length
       }
     };
+  },
+
+  async deleteUser(userId: string) {
+    await db.users.deleteOne({ _id: userId });
+    const allResumes = await db.resumes.find();
+    const userResumes = allResumes.filter(r => r.userId === userId);
+    for (const r of userResumes) {
+      await db.resumes.deleteOne({ _id: r._id });
+    }
   }
 };

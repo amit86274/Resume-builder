@@ -10,46 +10,24 @@ const API_BASE = window.location.hostname === 'localhost'
 
 const memoryStorage: Record<string, string> = {};
 
-// Helper to check if storage is available
-const isStorageAvailable = () => {
-  try {
-    const test = '__storage_test__';
-    window.localStorage.setItem(test, test);
-    window.localStorage.removeItem(test);
-    return true;
-  } catch (e) {
-    return false;
-  }
-};
-
-const storageAvailable = isStorageAvailable();
-
-export const safeStorage = {
+const safeStorage = {
   getItem: (key: string): string | null => {
     try {
-      return storageAvailable ? localStorage.getItem(key) : memoryStorage[key] || null;
+      return localStorage.getItem(key);
     } catch (e) {
       return memoryStorage[key] || null;
     }
   },
   setItem: (key: string, value: string): void => {
     try {
-      if (storageAvailable) {
-        localStorage.setItem(key, value);
-      } else {
-        memoryStorage[key] = value;
-      }
+      localStorage.setItem(key, value);
     } catch (e) {
       memoryStorage[key] = value;
     }
   },
   removeItem: (key: string): void => {
     try {
-      if (storageAvailable) {
-        localStorage.removeItem(key);
-      } else {
-        delete memoryStorage[key];
-      }
+      localStorage.removeItem(key);
     } catch (e) {
       delete memoryStorage[key];
     }
@@ -147,6 +125,7 @@ export const db = {
   database: "resumebuilder",
   users: new Collection<any>('users'),
   resumes: new Collection<any>('resumes'),
+  transactions: new Collection<any>('transactions'),
   status: 'connected',
   engine: 'Node.js + MongoDB Atlas',
   region: 'ap-south-1 (Mumbai)',

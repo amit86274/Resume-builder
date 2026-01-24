@@ -133,6 +133,201 @@ export const analyzeResumeATS = async (filename: string, fileData?: { data: stri
   }
 };
 
+export const simulateATSAnalysis = async (fileData: { data: string, mimeType: string }): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const prompt = `ACT AS AN ADVANCED ATS (Applicant Tracking System).
+  Scan the provided resume file and provide a deep simulation report in JSON format.
+  
+  REQUIRED JSON STRUCTURE:
+  {
+    "score": number (0-100),
+    "extractedText": "Short snippet of how the ATS reads the raw text",
+    "parsingStatus": "Success" | "Partial" | "Failure",
+    "criticalIssues": string[],
+    "foundSections": string[],
+    "missingSections": string[],
+    "formattingScore": number (0-100),
+    "keywordAnalysis": {
+      "strengths": string[],
+      "weaknesses": string[]
+    },
+    "optimizationChecklist": {
+      "item": string,
+      "status": "pass" | "fail",
+      "fix": string
+    }[]
+  }
+  
+  Consider: Non-standard fonts, tables, complex headers, images, and keyword density.`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: FLASH_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: fileData }
+        ]
+      },
+      config: { 
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4000 }
+      }
+    });
+    
+    const cleaned = cleanJsonResponse(response.text || "{}");
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("ATS Simulation Error:", e);
+    throw new Error("The AI failed to simulate ATS parsing. The file might be corrupted or unreadable.");
+  }
+};
+
+export const analyzeRejectionReasons = async (fileData: { data: string, mimeType: string }): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const prompt = `ACT AS A BRUTALLY HONEST EXECUTIVE RECRUITER with 20 years of experience at top firms like Google, McKinsey, and Goldman Sachs.
+  Audit this resume to explain EXACTLY why a candidate might NOT be getting interview calls.
+  
+  Look for:
+  1. "Red Flags": Employment gaps, job hopping, lack of progression.
+  2. "Recruiter Dislikes": Poor formatting, generic summaries, fluff words (e.g., 'hardworking', 'team player'), wall of text.
+  3. "Missing Impact": Duties instead of accomplishments, lack of numbers/metrics.
+  4. "Technical Gaps": Obsolete tech, missing core industry skills.
+
+  REQUIRED JSON STRUCTURE:
+  {
+    "brutalVerdict": "A 2-sentence harsh but helpful overview",
+    "callProbability": number (0-100),
+    "redFlags": { "issue": string, "impact": "High" | "Medium", "fix": string }[],
+    "recruiterPetPeeves": string[],
+    "missingImpactStatements": string[],
+    "top3Fixes": string[]
+  }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: COMPLEX_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: fileData }
+        ]
+      },
+      config: { 
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4000 }
+      }
+    });
+    
+    const cleaned = cleanJsonResponse(response.text || "{}");
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("Call Analyzer Error:", e);
+    throw new Error("The AI failed to audit the recruiter's perspective.");
+  }
+};
+
+export const generateInterviewPrep = async (fileData: { data: string, mimeType: string }): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const prompt = `ACT AS AN EXPERT TECHNICAL INTERVIEWER from a top firm.
+  Analyze this resume and generate a highly personalized interview preparation guide.
+  
+  Predict 10 questions based on their specific experience, skills, and potential industry.
+  Include:
+  1. 3 Behavioral questions (STAR method focus).
+  2. 4 Technical questions (based on their tech stack).
+  3. 3 "Curveball" or "Cultural Fit" questions.
+  
+  REQUIRED JSON STRUCTURE:
+  {
+    "predictedQuestions": {
+       "type": "Behavioral" | "Technical" | "Cultural",
+       "question": string,
+       "whyAsked": string,
+       "modelAnswer": string,
+       "keyKeywords": string[]
+    }[],
+    "interviewStrategy": string,
+    "confidenceBooster": string
+  }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: COMPLEX_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: fileData }
+        ]
+      },
+      config: { 
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4000 }
+      }
+    });
+    
+    const cleaned = cleanJsonResponse(response.text || "{}");
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("Interview Prep Error:", e);
+    throw new Error("Failed to generate interview preparation materials.");
+  }
+};
+
+export const analyzeSkillGap = async (fileData: { data: string, mimeType: string }, jobDescription: string): Promise<any> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  
+  const prompt = `ACT AS A SENIOR CAREER ARCHITECT.
+  Analyze the provided resume against this Target Job Description: "${jobDescription}".
+  
+  Map out exactly where the user stands, where the job requirements are, and how to bridge the gap.
+  
+  REQUIRED JSON STRUCTURE:
+  {
+    "matchScore": number (0-100),
+    "summary": "Short overview of compatibility",
+    "skillsMap": {
+       "skill": string,
+       "userLevel": number (0-10),
+       "requiredLevel": number (0-10),
+       "status": "Match" | "Gap" | "Surplus"
+    }[],
+    "priorityGaps": string[],
+    "learningPath": {
+       "topic": string,
+       "resourceType": "Course" | "Project" | "Certification",
+       "effort": "Low" | "Medium" | "High",
+       "description": string
+    }[],
+    "missingKeywords": string[]
+  }`;
+
+  try {
+    const response = await ai.models.generateContent({
+      model: COMPLEX_MODEL,
+      contents: {
+        parts: [
+          { text: prompt },
+          { inlineData: fileData }
+        ]
+      },
+      config: { 
+        responseMimeType: "application/json",
+        thinkingConfig: { thinkingBudget: 4000 }
+      }
+    });
+    
+    const cleaned = cleanJsonResponse(response.text || "{}");
+    return JSON.parse(cleaned);
+  } catch (e) {
+    console.error("Skill Gap Analysis Error:", e);
+    throw new Error("Failed to analyze skill gap.");
+  }
+};
+
 export const improveSummary = async (summary: string, jobTitle: string, skills: string[]): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
   const response = await ai.models.generateContent({

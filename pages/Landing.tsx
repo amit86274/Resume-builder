@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { 
   CheckCircle, Zap, Shield, FileCheck, ArrowRight, 
@@ -150,7 +149,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
               <span>India's #1 AI Resume Builder</span>
             </div>
             
-            <h1 className="text-3xl md:text-5xl lg:text-7xl font-black text-slate-900 tracking-tight mb-8 leading-[1.1] animate-in slide-in-from-bottom-8 duration-1000">
+            <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight mb-8 leading-[1.1] animate-in slide-in-from-bottom-8 duration-1000">
               Build a Professional Resume <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600">in Minutes</span>
             </h1>
@@ -202,7 +201,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
               <div className="inline-flex items-center px-4 py-1.5 rounded-xl bg-blue-50 text-blue-600 text-[9px] font-black uppercase tracking-[0.3em] mb-6">
                 <Cpu className="w-4 h-4 mr-2" /> Engineered for impact
               </div>
-              <h2 className="text-4xl md:text-6xl font-black text-slate-900 mb-8 tracking-tighter leading-none">
+              <h2 className="text-4xl md:text-5xl font-black text-slate-900 mb-8 tracking-tighter leading-none">
                 Smart Engineering. <br />
                 <span className="text-blue-600">Better Results.</span>
               </h2>
@@ -260,7 +259,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
         <div className="absolute inset-0 bg-black/10" />
         <div className="max-w-7xl mx-auto px-6 relative z-10">
           <div className="text-center mb-20 space-y-6">
-            <h2 className="text-4xl lg:text-6xl font-black tracking-tighter leading-tight">
+            <h2 className="text-4xl lg:text-5xl font-black tracking-tighter leading-tight">
               Real Results. <span className="text-white/70">Real People.</span>
             </h2>
             <p className="text-xl text-blue-50 max-w-2xl mx-auto font-medium leading-relaxed">
@@ -334,7 +333,7 @@ const Landing: React.FC<LandingProps> = ({ onStart, onNavigate }) => {
         <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-white/5 rounded-full blur-[120px] translate-y-1/2 -translate-x-1/2" />
         
         <div className="max-w-7xl mx-auto px-6 text-center relative z-10">
-          <h3 className="text-4xl md:text-6xl font-black text-white mb-8 tracking-tighter leading-tight">Ready to Land Your Dream Job?</h3>
+          <h3 className="text-4xl md:text-5xl font-black text-white mb-8 tracking-tighter leading-tight">Ready to Land Your Dream Job?</h3>
           <p className="text-blue-50 mb-14 text-xl max-w-2xl mx-auto font-medium leading-relaxed">
             Your next interview is just 5 minutes away. Join thousands of professionals who already upgraded their careers with ResuMaster AI.
           </p>

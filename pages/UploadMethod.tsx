@@ -45,7 +45,7 @@ const UploadMethod: React.FC<UploadMethodProps> = ({ onFileSelect, onBack }) => 
         
         <div className="max-w-4xl w-full space-y-12 text-center">
           <div className="space-y-4">
-            <h1 className="text-4xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
+            <h1 className="text-3xl md:text-5xl font-black text-slate-900 tracking-tight leading-tight">
               Upload your resume
             </h1>
             <p className="text-slate-500 font-medium text-lg max-w-2xl mx-auto">

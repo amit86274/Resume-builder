@@ -9,6 +9,17 @@ export const TEMPLATES: ResumeTemplate[] = [
   }
 ];
 
+const DEFAULT_SETTINGS = {
+  primaryColor: '#004b93',
+  secondaryColor: 'rgba(0,0,0,0.15)',
+  sidebarTextColor: '#ffffff',
+  mainTextColor: '#333333',
+  subHeadingColor: '#1a2b48',
+  accentColor: '#004b93',
+  headingFont: 'Inter',
+  bodyFont: 'Inter',
+};
+
 export const MOCK_RESUME_DATA: ResumeData = {
   id: 'mock-1',
   title: 'My Professional Resume',
@@ -64,6 +75,7 @@ export const MOCK_RESUME_DATA: ResumeData = {
   ],
   certifications: ['Certified AI Practitioner', 'Data Analytics Professional'],
   hobbies: ['Chess', 'Photography', 'Travel'],
+  settings: { ...DEFAULT_SETTINGS }
 };
 
 export const INITIAL_RESUME: ResumeData = {
@@ -87,4 +99,5 @@ export const INITIAL_RESUME: ResumeData = {
   projects: [],
   certifications: [],
   hobbies: [],
+  settings: { ...DEFAULT_SETTINGS }
 };

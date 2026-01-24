@@ -1,6 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { User } from '../types';
-import { safeStorage } from '../services/mongodb';
 
 interface UserContextType {
   user: User | null;
@@ -16,23 +15,27 @@ export const UserProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const savedUser = safeStorage.getItem('resuMaster_user');
-    if (savedUser) {
-      try {
+    try {
+      const savedUser = localStorage.getItem('resuMaster_user');
+      if (savedUser) {
         setUserState(JSON.parse(savedUser));
-      } catch (e) {
-        console.warn('[UserContext] Failed to parse user from storage.');
       }
+    } catch (e) {
+      console.warn('[UserContext] Failed to load user from localStorage (SecurityError or invalid JSON).');
     }
     setIsLoading(false);
   }, []);
 
   const setUser = (newUser: User | null) => {
     setUserState(newUser);
-    if (newUser) {
-      safeStorage.setItem('resuMaster_user', JSON.stringify(newUser));
-    } else {
-      safeStorage.removeItem('resuMaster_user');
+    try {
+      if (newUser) {
+        localStorage.setItem('resuMaster_user', JSON.stringify(newUser));
+      } else {
+        localStorage.removeItem('resuMaster_user');
+      }
+    } catch (e) {
+      console.warn('[UserContext] Failed to save/remove user from localStorage (SecurityError).');
     }
   };
 

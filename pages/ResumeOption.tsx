@@ -1,4 +1,3 @@
-
 import React, { useState } from 'react';
 import { Upload, PenLine, Check, Sparkles, ChevronRight } from 'lucide-react';
 import { MasterTemplateSelector } from '../components/ResumeTemplates';
@@ -39,7 +38,7 @@ const ResumeOption: React.FC<ResumeOptionProps> = ({ onSelect, templateId }) => 
               <Sparkles className="w-3.5 h-3.5" />
               <span>India's Elite AI Builder</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-black text-[#1a2b48] tracking-tight leading-[1.1]">
+            <h1 className="text-3xl md:text-5xl font-black text-[#1a2b48] tracking-tight leading-[1.1]">
               How would you like to start?
             </h1>
             <p className="text-gray-400 text-lg font-medium max-w-lg">

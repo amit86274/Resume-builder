@@ -18,6 +18,7 @@ declare global {
   }
 }
 
+// Fixed: The Auth component was truncated and missing its default export.
 const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNavigate }) => {
   const [mode, setMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
   const [showPassword, setShowPassword] = useState(false);
@@ -142,7 +143,7 @@ const Auth: React.FC<AuthProps> = ({ initialMode = 'login', onAuthSuccess, onNav
         <div className="hidden lg:flex flex-col justify-between p-12 bg-animate-gradient text-white relative overflow-hidden">
           <div className="absolute inset-0 bg-black/10" /> 
           <div className="relative z-10">
-            <button onClick={() => onNavigate('/')} className="flex items-center space-x-2 mb-16">
+            <button onClick={() => onNavigate('landing')} className="flex items-center space-x-2 mb-16">
               <Sparkles className="w-8 h-8 text-white drop-shadow-lg" />
               <span className="text-2xl font-black drop-shadow-md">ResuMaster AI</span>
             </button>

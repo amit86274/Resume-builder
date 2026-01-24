@@ -8,7 +8,7 @@ import { UserProvider } from '../context/UserContext';
 
 /**
  * Root Layout Component
- * Standard Next.js app/layout.tsx logic adapted for this environment
+ * Mimics Next.js app/layout.tsx behavior
  */
 export default function RootLayout({ children }: { children?: React.ReactNode }) {
   const pathname = usePathname();
@@ -51,6 +51,9 @@ export default function RootLayout({ children }: { children?: React.ReactNode })
                 <ul className="space-y-4 text-[13px] font-bold">
                   <li><Link href="/builder" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">Resume Builder</Link></li>
                   <li><Link href="/templates" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">Templates Gallery</Link></li>
+                  <li><Link href="/ats-simulator" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">ATS Simulator</Link></li>
+                  <li><Link href="/interview-prep" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">AI Interview Prep</Link></li>
+                  <li><Link href="/skill-gap" className="hover:text-blue-400 transition-colors uppercase tracking-widest block">Skill Gap Map</Link></li>
                 </ul>
               </div>
               <div className="space-y-6">

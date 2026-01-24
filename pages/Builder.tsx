@@ -7,9 +7,9 @@ import {
   Camera, Linkedin, ChevronDown, Lightbulb, Wand2, Search,
   Star, Keyboard, Crop, Image as ImageIcon, Maximize, Move, Sliders, Type,
   Globe, BadgeCheck, Palette, Rocket, Link as LinkIcon, FileText, CheckCircle2,
-  Undo2, CloudUpload
+  Undo2, Redo2, CloudUpload, Calendar
 } from 'lucide-react';
-import { ResumeData, TemplateTier, Experience, Education, Skill, Project } from '../types';
+import { ResumeData, TemplateTier, Experience, Education, Skill, Project, CustomizationSettings } from '../types';
 import { INITIAL_RESUME, TEMPLATES, MOCK_RESUME_DATA } from '../constants';
 import { MasterTemplateSelector } from '../components/ResumeTemplates';
 import { useRouter, useSearchParams } from '../services/router';
@@ -21,7 +21,6 @@ import {
   finalizeAndPolishResume
 } from '../services/gemini';
 import { MockAPI } from '../services/api';
-import { safeStorage } from '../services/mongodb';
 
 const MONTHS = ['Month', 'January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const YEARS = ['Year', ...Array.from({ length: 60 }, (_, i) => (new Date().getFullYear() - i).toString())];
@@ -34,6 +33,15 @@ const EDUCATION_LEVELS = [
   'Bachelors',
   'Masters',
   'Doctorate or Ph.D.'
+];
+
+const FONTS = [
+  { name: 'Inter', family: 'Inter, sans-serif' },
+  { name: 'Roboto', family: 'Roboto, sans-serif' },
+  { name: 'Lora', family: 'Lora, serif' },
+  { name: 'Playfair Display', family: 'Playfair Display, serif' },
+  { name: 'Montserrat', family: 'Montserrat, sans-serif' },
+  { name: 'Open Sans', family: 'Open Sans, sans-serif' },
 ];
 
 interface BuilderProps {
@@ -49,10 +57,13 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const resumeRef = useRef<HTMLDivElement>(null);
   
   const [data, setData] = useState<ResumeData>(() => {
-    const savedDraft = safeStorage.getItem('resumaster_current_draft');
+    const savedDraft = localStorage.getItem('resumaster_current_draft');
     if (savedDraft && !prefilledData) {
       try {
-        return JSON.parse(savedDraft);
+        const parsed = JSON.parse(savedDraft);
+        // Ensure settings are present
+        if (!parsed.settings) parsed.settings = { ...INITIAL_RESUME.settings };
+        return parsed;
       } catch (e) {
         console.error("Draft restore error", e);
       }
@@ -85,6 +96,12 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     return base;
   });
 
+  // History State for Undo/Redo
+  const [past, setPast] = useState<ResumeData[]>([]);
+  const [future, setFuture] = useState<ResumeData[]>([]);
+  const isInternalChange = useRef(false);
+  const lastSavedJson = useRef(JSON.stringify(data));
+
   const [activeStep, setActiveStep] = useState(0);
   const [eduSubStep, setEduSubStep] = useState<'selection' | 'form'>(data.education.length > 0 ? 'form' : 'selection');
   const [completeness, setCompleteness] = useState(0);
@@ -94,7 +111,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
 
   const [isSummaryLoading, setIsSummaryLoading] = useState(false);
   const [summarySuggestions, setSummarySuggestions] = useState<string[]>([]);
-  const [summaryHistory, setSummaryHistory] = useState<string[]>([]);
 
   const [manualLang, setManualLang] = useState('');
   const [manualCert, setManualCert] = useState('');
@@ -116,6 +132,66 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const [isSaving, setIsSaving] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Keyboard shortcuts for Undo/Redo
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        handleRedo();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [past, future, data]);
+
+  // Debounced history snapshotting
+  useEffect(() => {
+    if (isInternalChange.current) {
+      isInternalChange.current = false;
+      return;
+    }
+
+    const timer = setTimeout(() => {
+      const currentJson = JSON.stringify(data);
+      if (currentJson !== lastSavedJson.current) {
+        setPast(prev => [...prev.slice(-49), JSON.parse(lastSavedJson.current)]);
+        setFuture([]);
+        lastSavedJson.current = currentJson;
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [data]);
+
+  const handleUndo = () => {
+    if (past.length === 0) return;
+    const previous = past[past.length - 1];
+    const current = data;
+    
+    isInternalChange.current = true;
+    setPast(prev => prev.slice(0, -1));
+    setFuture(prev => [current, ...prev]);
+    setData(previous);
+    lastSavedJson.current = JSON.stringify(previous);
+  };
+
+  const handleRedo = () => {
+    if (future.length === 0) return;
+    const next = future[0];
+    const current = data;
+
+    isInternalChange.current = true;
+    setFuture(prev => prev.slice(1));
+    setPast(prev => [...prev, current]);
+    setData(next);
+    lastSavedJson.current = JSON.stringify(next);
+  };
+
   const steps = [
     { id: 'heading', title: 'Heading', number: 1 },
     { id: 'experience', title: 'Work history', number: 2 },
@@ -126,11 +202,12 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     { id: 'languages', title: 'Languages', number: 7 },
     { id: 'certifications', title: 'Certifications', number: 8 },
     { id: 'hobbies', title: 'Hobbies', number: 9 },
-    { id: 'finalize', title: 'Finalize', number: 10 },
+    { id: 'customization', title: 'Customization', number: 10 },
+    { id: 'finalize', title: 'Finalize', number: 11 },
   ];
 
   useEffect(() => {
-    safeStorage.setItem('resumaster_current_draft', JSON.stringify(data));
+    localStorage.setItem('resumaster_current_draft', JSON.stringify(data));
 
     let score = 0;
     if (data.personalInfo.fullName) score += 10;
@@ -175,6 +252,16 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     if (field === 'education') setEduSubStep('form');
   };
 
+  const updateSettings = (key: keyof CustomizationSettings, value: string) => {
+    setData(prev => ({
+      ...prev,
+      settings: {
+        ...(prev.settings || (INITIAL_RESUME.settings as CustomizationSettings)),
+        [key]: value
+      }
+    }));
+  };
+
   const handleAutoSkillFetch = async () => {
     setIsSkillsLoading(true);
     const query = data.personalInfo.location || data.experience[0]?.position || 'Professional';
@@ -197,7 +284,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
   const handleImproveSummary = async () => {
     if (!data.personalInfo.summary) return;
     setIsSummaryLoading(true);
-    setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
     const title = data.personalInfo.location || data.experience[0]?.position || 'Professional';
     const skillsList = data.skills.map(s => s.name);
     try {
@@ -206,17 +292,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     } catch (e) { console.error(e); } finally { setIsSummaryLoading(false); }
   };
 
-  const handleUndoSummary = () => {
-    if (summaryHistory.length === 0) return;
-    const [lastVersion, ...rest] = summaryHistory;
-    handlePersonalInfoUpdate('summary', lastVersion);
-    setSummaryHistory(rest);
-  };
-
   const handleSelectSummarySuggestion = (suggestion: string) => {
-    if (data.personalInfo.summary) {
-      setSummaryHistory(prev => [data.personalInfo.summary, ...prev].slice(0, 10));
-    }
     handlePersonalInfoUpdate('summary', suggestion);
   };
 
@@ -231,7 +307,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         setCropOffset({ x: 0, y: 0 });
         setIsCropping(true);
         const img = new Image();
-        img.crossOrigin = "anonymous";
         img.src = result;
         img.onload = () => { imgRef.current = img; drawCanvas(); };
       };
@@ -241,15 +316,10 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
 
   const handleApplyCrop = () => {
     if (canvasRef.current) {
-      try {
-        const croppedImage = canvasRef.current.toDataURL('image/png');
-        handlePersonalInfoUpdate('profileImage', croppedImage);
-        setIsCropping(false);
-        setTempImage(null);
-      } catch (e) {
-        console.error("Crop failure (likely SecurityError):", e);
-        alert("Unable to process this image due to browser security restrictions. Please try a different photo.");
-      }
+      const croppedImage = canvasRef.current.toDataURL('image/png');
+      handlePersonalInfoUpdate('profileImage', croppedImage);
+      setIsCropping(false);
+      setTempImage(null);
     }
   };
 
@@ -336,90 +406,63 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     return 'Novice';
   };
 
-  const convertImageToDataUrl = async (url: string): Promise<string> => {
-    try {
-      const cacheBustUrl = url.includes('?') ? `${url}&t=${Date.now()}` : `${url}?t=${Date.now()}`;
-      const response = await fetch(cacheBustUrl, { mode: 'cors' });
-      const blob = await response.blob();
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.onerror = reject;
-        reader.readAsDataURL(blob);
-      });
-    } catch (e) {
-      console.warn("Failed to convert image to DataURL, falling back to original URL", e);
-      return url;
-    }
-  };
-
   const handleDownloadPdf = async () => {
     if (isExporting) return;
     setIsExporting(true);
+    
+    // Crucial fix: Normalize scroll to top before capture
+    const currentScrollY = window.scrollY;
     window.scrollTo(0, 0);
 
     try {
-      // Convert external image to base64 to avoid canvas tainting
-      if (data.personalInfo.profileImage && !data.personalInfo.profileImage.startsWith('data:')) {
-        const localDataUrl = await convertImageToDataUrl(data.personalInfo.profileImage);
-        setData(prev => ({
-          ...prev,
-          personalInfo: { ...prev.personalInfo, profileImage: localDataUrl }
-        }));
-        await new Promise(r => setTimeout(r, 800));
-      }
-
+      // AI final content optimization before PDF generation
       const polishedData = await finalizeAndPolishResume(data);
       setData(polishedData);
-      await new Promise(r => setTimeout(r, 1200));
+      
+      // Let React settle
+      await new Promise(r => setTimeout(r, 800));
 
       const element = resumeRef.current;
       if (!element) throw new Error("Printable resume content not found.");
       
-      const fileName = `${(data.personalInfo.fullName || 'Resume').trim().replace(/\s+/g, '_')}_Resume.pdf`;
+      const fileName = `${data.personalInfo.fullName.trim().replace(/\s+/g, '_')}_Resume.pdf`;
       
       const opt = {
         margin: 0,
         filename: fileName,
-        image: { type: 'jpeg', quality: 1.0 },
-        pagebreak: { mode: ['avoid-all', 'css', 'legacy'] },
+        image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { 
           scale: 2, 
           useCORS: true, 
-          allowTaint: true,
+          letterRendering: true,
           logging: false,
           scrollY: 0,
           scrollX: 0,
-          onclone: (clonedDoc: Document) => {
-            const resumeInClone = clonedDoc.querySelector('[data-resume-target]') as HTMLElement;
-            if (resumeInClone) {
-              resumeInClone.style.transform = 'none';
-              resumeInClone.style.boxShadow = 'none';
-              resumeInClone.style.borderRadius = '0';
-              resumeInClone.style.margin = '0';
-              resumeInClone.style.padding = '0';
-              resumeInClone.style.position = 'static';
-            }
-          }
+          y: 0 // Absolute vertical origin for capture
         },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true }
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait', compress: true },
+        // Optimized pagebreak settings for Zety-style layouts
+        pagebreak: { 
+          mode: ['css', 'legacy'], // Enables dynamic length and multiple pages
+          avoid: ['.page-break-avoid', 'section'] // Extra safety
+        }
       };
       
-      // @ts-ignore
+      // @ts-ignore - html2pdf loaded via CDN
       await window.html2pdf().set(opt).from(element).save();
     } catch (err) {
       console.error("Advanced PDF Export failed:", err);
-      alert("A security restriction occurred. This can happen with certain browsers. Attempting standard print.");
-      window.print();
+      window.print(); // Browser native fallback
     } finally {
+      window.scrollTo(0, currentScrollY);
       setIsExporting(false);
     }
   };
 
   const handleSaveToDashboard = async () => {
     if (!user) {
-      safeStorage.setItem('resumaster_pending_save', JSON.stringify(data));
-      push('/auth?mode=signup');
+      localStorage.setItem('resumaster_pending_save', JSON.stringify(data));
+      push('/signup?redirect=dashboard');
       return;
     }
 
@@ -430,7 +473,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         title: data.personalInfo.fullName ? `${data.personalInfo.fullName}'s Resume` : 'My Resume',
         lastEdited: new Date().toISOString()
       });
-      safeStorage.removeItem('resumaster_current_draft');
+      localStorage.removeItem('resumaster_current_draft');
       push('/dashboard');
     } catch (err) {
       alert("Error saving your resume. Please check your connection.");
@@ -456,7 +499,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
               className="w-40 h-48 bg-gray-100 rounded-2xl flex items-center justify-center overflow-hidden border-2 border-dashed border-gray-200 group-hover:border-blue-400 cursor-pointer relative shadow-sm hover:shadow-xl transition-all duration-300"
             >
               {data.personalInfo.profileImage ? (
-                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover animate-in fade-in" crossOrigin="anonymous" />
+                <img src={data.personalInfo.profileImage} alt="Profile" className="w-full h-full object-cover animate-in fade-in" />
               ) : (
                 <div className="flex flex-col items-center space-y-2 text-slate-400 group-hover:text-blue-500 transition-colors">
                   <Camera className="w-10 h-10" />
@@ -534,12 +577,19 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
             <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
               <Input label="Job Title *" value={exp.position} onChange={(v: string) => updateArrayItem('experience', exp.id, 'position', v)} placeholder="Software Engineer" />
               <Input label="Employer *" value={exp.company} onChange={(v: string) => updateArrayItem('experience', exp.id, 'company', v)} placeholder="Tata Consultancy Services" />
-              <div className="md:col-span-2">
-                <Input label="Location" value={exp.location} onChange={(v: string) => updateArrayItem('experience', exp.id, 'location', v)} placeholder="Bangalore, India" />
+              <Input label="Location" value={exp.location} onChange={(v: string) => updateArrayItem('experience', exp.id, 'location', v)} placeholder="Bangalore, India" />
+              
+              {/* Date Fields */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <Input label="Start Date" value={exp.startDate} onChange={(v: string) => updateArrayItem('experience', exp.id, 'startDate', v)} placeholder="MM/YYYY" />
+                {!exp.current && (
+                  <Input label="End Date" value={exp.endDate} onChange={(v: string) => updateArrayItem('experience', exp.id, 'endDate', v)} placeholder="MM/YYYY" />
+                )}
               </div>
+
               <div className="md:col-span-2 flex items-center space-x-8">
                 <label className="flex items-center cursor-pointer space-x-3">
-                  <input type="checkbox" checked={exp.current} onChange={(e) => updateArrayItem('experience', exp.id, 'current', e.target.checked)} className="w-6 h-6 border-2 rounded-lg accent-blue-600" />
+                  <input type="checkbox" checked={exp.current} onChange={(e) => updateArrayItem('experience', exp.id, 'current', e.target.checked)} className="w-6 h-6 border-2 rounded-lg accent-blue-600 transition-all" />
                   <span className="text-sm font-bold text-[#1a2b48]">I currently work here</span>
                 </label>
               </div>
@@ -653,7 +703,7 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
             <div className="flex justify-between items-center p-8 border-b border-slate-50">
                <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center"><Type className="w-4 h-4 mr-2" /> Content Editor</h3>
                <div className="flex items-center space-x-3">
-                 <button onClick={handleUndoSummary} disabled={summaryHistory.length === 0} className={`flex items-center space-x-2 px-6 py-3 border-2 border-slate-100 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${summaryHistory.length > 0 ? 'bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200' : 'bg-slate-50 text-slate-300 cursor-not-allowed border-transparent'}`} title="Undo last change"><RotateCcw className="w-3.5 h-3.5" /> <span>Undo</span></button>
+                 <button onClick={handleUndo} disabled={past.length === 0} className={`flex items-center space-x-2 px-6 py-3 border-2 border-slate-100 rounded-full font-black text-[10px] uppercase tracking-widest transition-all ${past.length > 0 ? 'bg-white text-slate-600 hover:bg-slate-50 hover:border-slate-200' : 'bg-slate-50 text-slate-300 cursor-not-allowed border-transparent'}`} title="Undo last change"><RotateCcw className="w-3.5 h-3.5" /> <span>Undo</span></button>
                  <button onClick={handleImproveSummary} disabled={!data.personalInfo.summary || isSummaryLoading} className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-full font-black text-[10px] uppercase tracking-widest hover:bg-blue-700 disabled:opacity-50 transition-all shadow-lg shadow-blue-500/20">{isSummaryLoading ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />} <span>AI Improve</span></button>
                </div>
             </div>
@@ -745,6 +795,54 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     </div>
   );
 
+  const renderCustomizationStep = () => {
+    const settings = data.settings || (INITIAL_RESUME.settings as CustomizationSettings);
+    return (
+      <div className="max-w-4xl w-full mx-auto animate-in fade-in duration-500 pb-20 space-y-12">
+        <div className="mb-10">
+          <button onClick={() => setActiveStep(8)} className="text-blue-600 font-bold text-sm flex items-center mb-6 hover:translate-x-[-4px] transition-transform"><ChevronLeft className="w-4 h-4 mr-1" /> Go Back</button>
+          <h2 className="text-4xl font-black text-[#1a2b48] tracking-tight mb-2">Personalize your design</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          {/* Typography Controls */}
+          <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center"><Type className="w-4 h-4 mr-2" /> Typography</h3>
+            
+            <div className="space-y-6">
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-[#1a2b48]">Heading Font</label>
+                <select className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-black" value={settings.headingFont} onChange={(e) => updateSettings('headingFont', e.target.value)}>
+                  {FONTS.map(f => <option key={f.name} value={f.family}>{f.name}</option>)}
+                </select>
+              </div>
+              <div className="space-y-2">
+                <label className="text-[11px] font-black uppercase tracking-wider text-[#1a2b48]">Body Text Font</label>
+                <select className="w-full px-5 py-4 bg-slate-50 border border-slate-100 rounded-2xl outline-none focus:ring-2 focus:ring-blue-500 font-bold text-black" value={settings.bodyFont} onChange={(e) => updateSettings('bodyFont', e.target.value)}>
+                  {FONTS.map(f => <option key={f.name} value={f.family}>{f.name}</option>)}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* Color Palette Controls */}
+          <div className="bg-white p-10 rounded-[3rem] shadow-xl border border-slate-100 space-y-8">
+            <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center"><Palette className="w-4 h-4 mr-2" /> Color Palette</h3>
+            
+            <div className="space-y-6">
+              <ColorInput label="Sidebar Background" value={settings.primaryColor} onChange={(v) => updateSettings('primaryColor', v)} />
+              <ColorInput label="Sub-heading Background" value={settings.secondaryColor} onChange={(v) => updateSettings('secondaryColor', v)} />
+              <ColorInput label="Sidebar Text Color" value={settings.sidebarTextColor} onChange={(v) => updateSettings('sidebarTextColor', v)} />
+              <ColorInput label="Main Content Text" value={settings.mainTextColor} onChange={(v) => updateSettings('mainTextColor', v)} />
+              <ColorInput label="Sub-heading Color" value={settings.subHeadingColor} onChange={(v) => updateSettings('subHeadingColor', v)} />
+              <ColorInput label="Accent Color (Name/Lines)" value={settings.accentColor} onChange={(v) => updateSettings('accentColor', v)} />
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
+
   const renderFinalizeStep = () => (
     <div className="max-w-7xl w-full mx-auto animate-in fade-in duration-500 pb-32">
       <div className="flex flex-col items-center mb-16 no-print">
@@ -753,7 +851,6 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
         <p className="text-slate-500 text-xl font-medium text-center max-w-xl leading-relaxed mb-12">Review your masterpiece below.</p>
       </div>
       
-      {/* FINAL EXPORT PREVIEW */}
       <div className="relative flex justify-center w-full px-4 mb-20">
          <div 
           ref={resumeRef}
@@ -781,10 +878,34 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
     </div>
   );
 
-  const isFinalizeStep = activeStep === 9;
+  const isFinalizeStep = activeStep === 10;
 
   return (
-    <div className="min-h-screen bg-white flex flex-col md:flex-row font-inter overflow-hidden">
+    <div className="min-h-screen bg-white flex flex-col md:flex-row font-inter overflow-hidden relative">
+      
+      {/* Undo/Redo Floating Controls */}
+      {!isFinalizeStep && (
+        <div className="fixed bottom-32 right-8 md:right-12 z-[60] flex items-center space-x-2 no-print bg-white/70 backdrop-blur-xl p-2 rounded-2xl shadow-2xl border border-slate-100 transition-all">
+          <button 
+            onClick={handleUndo} 
+            disabled={past.length === 0}
+            className={`p-3 rounded-xl transition-all ${past.length > 0 ? 'text-slate-900 hover:bg-slate-100' : 'text-slate-200 cursor-not-allowed'}`}
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="w-5 h-5" />
+          </button>
+          <div className="w-px h-6 bg-slate-100" />
+          <button 
+            onClick={handleRedo} 
+            disabled={future.length === 0}
+            className={`p-3 rounded-xl transition-all ${future.length > 0 ? 'text-slate-900 hover:bg-slate-100' : 'text-slate-200 cursor-not-allowed'}`}
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="w-5 h-5" />
+          </button>
+        </div>
+      )}
+
       <div className="w-full md:w-64 bg-gradient-to-b from-blue-600 to-indigo-950 text-white flex flex-col shrink-0 no-print shadow-2xl z-10">
         <div className="p-8">
           <button onClick={() => push('/')} className="flex items-center space-x-2 group mb-12"><Sparkles className="w-8 h-8 text-white" /><span className="text-2xl font-black tracking-tighter">resu</span></button>
@@ -815,13 +936,14 @@ const Builder: React.FC<BuilderProps> = ({ user, initialTemplateId, prefilledDat
           {activeStep === 6 && renderLanguagesStep()}
           {activeStep === 7 && renderCertificationsStep()}
           {activeStep === 8 && renderHobbiesStep()}
-          {activeStep === 9 && renderFinalizeStep()}
+          {activeStep === 9 && renderCustomizationStep()}
+          {activeStep === 10 && renderFinalizeStep()}
         </div>
         {!isFinalizeStep && (
           <div className="h-28 border-t border-gray-100 flex items-center justify-center md:justify-end px-12 bg-white sticky bottom-0 z-50 shadow-sm no-print">
             <div className="flex space-x-4">
-              <button onClick={() => setActiveStep(9)} className="px-12 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-black uppercase text-xs tracking-widest hover:bg-gray-50 transition-all active:scale-95">Finish Early</button>
-              <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90`}>{activeStep === 8 ? 'Finalize' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" /></button>
+              <button onClick={() => setActiveStep(10)} className="px-12 py-4 bg-white border-2 border-slate-900 text-slate-900 rounded-full font-black uppercase text-xs tracking-widest hover:bg-gray-50 transition-all active:scale-95">Finish Early</button>
+              <button onClick={() => setActiveStep(prev => Math.min(steps.length - 1, prev + 1))} className={`px-14 py-4 rounded-full font-black uppercase text-xs tracking-widest transition-all shadow-xl flex items-center whitespace-nowrap bg-blue-600 text-white shadow-blue-500/20 hover:opacity-90`}>{activeStep === 9 ? 'Finalize' : `Next: ${steps[activeStep + 1]?.title || 'Finish'}`} <ChevronRight className="ml-2 w-4 h-4" /></button>
             </div>
           </div>
         )}
@@ -846,6 +968,16 @@ const Input = ({ label, value, onChange, placeholder }: any) => (
   <div className="flex flex-col space-y-2">
     <label className="text-[11px] font-black text-[#1a2b48] uppercase tracking-wider whitespace-nowrap">{label}</label>
     <input type="text" className="border border-gray-200 rounded-xl px-5 py-4 text-sm font-medium focus:border-blue-500 focus:ring-4 focus:ring-blue-50 outline-none bg-white text-black transition-all placeholder:text-gray-300" value={value || ''} placeholder={placeholder} onChange={e => onChange(e.target.value)} />
+  </div>
+);
+
+const ColorInput = ({ label, value, onChange }: { label: string; value: string; onChange: (v: string) => void }) => (
+  <div className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100">
+    <label className="text-[11px] font-black uppercase tracking-wider text-slate-600">{label}</label>
+    <div className="flex items-center space-x-3">
+      <input type="color" value={value} onChange={(e) => onChange(e.target.value)} className="w-10 h-10 border-none bg-transparent cursor-pointer rounded-full overflow-hidden" />
+      <input type="text" value={value} onChange={(e) => onChange(e.target.value)} className="w-20 bg-white border border-slate-200 rounded-lg px-2 py-1 text-[10px] font-mono font-bold text-center uppercase" />
+    </div>
   </div>
 );
 

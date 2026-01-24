@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { 
   Sparkles, FileText, Layers, 
-  ChevronDown, LayoutDashboard, LogOut, Bell, Menu, X, BarChart 
+  ChevronDown, LayoutDashboard, LogOut, Bell, Menu, X, BarChart,
+  ShieldAlert, PhoneOutgoing, Mic
 } from 'lucide-react';
 import { useUser } from '../context/UserContext';
 import { useRouter, Link } from '../services/router';
@@ -17,8 +18,10 @@ const Navbar: React.FC<NavbarProps> = ({ currentPage }) => {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   const navItems = [
-    { id: 'builder', label: 'Builder', icon: FileText, href: '/builder' },
     { id: 'templates', label: 'Templates', icon: Layers, href: '/templates' },
+    { id: 'ats-simulator', label: 'AI Resume Auditor', icon: ShieldAlert, href: '/ats-simulator' },
+    { id: 'interview-prep', label: 'Interview Prep', icon: Mic, href: '/interview-prep' },
+    { id: 'call-analyzer', label: 'Call Analyzer', icon: PhoneOutgoing, href: '/call-analyzer' },
   ];
 
   const handleLogout = () => {

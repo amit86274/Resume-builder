@@ -21,6 +21,18 @@ export interface ResumeData {
   projects: Project[];
   certifications: string[];
   hobbies: string[];
+  settings?: CustomizationSettings;
+}
+
+export interface CustomizationSettings {
+  primaryColor: string;      // Sidebar background
+  secondaryColor: string;    // Sub-heading background (sidebar)
+  sidebarTextColor: string;  // Text color in sidebar
+  mainTextColor: string;     // Text color in main content
+  subHeadingColor: string;   // Color for positions/degrees in main content
+  accentColor: string;       // Color for name/title/icons
+  headingFont: string;
+  bodyFont: string;
 }
 
 export interface Skill {
